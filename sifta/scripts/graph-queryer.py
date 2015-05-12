@@ -133,8 +133,8 @@ def traverse(nodeHash, flow):
 
     for child in children:
         # We have problems with IntentResults, so lets ignore them
-        #if isinstance(graph.hashToObjectMapping[child], IntentResult):
-        #    continue
+        if isinstance(graph.hashToObjectMapping[child], IntentResult):
+            continue
 
         #We want to ignore flows, where an app have more than a 100 flows (we have the list of apps in appsToIgnore)
         appsOnEdge = graph.edges[nodeHash,child]
@@ -207,6 +207,9 @@ def drawGraph():
     seenEdges  = set()
     dot = Digraph(comment="Graph")
     print "FLOWS FOUND: " + str(len(allFlows))
+    
+    largestPCsize=0
+    edgeWithlargestPCsize=None
 
     for flow in allFlows:
         edges = flow.edges
@@ -228,14 +231,20 @@ def drawGraph():
                 seenBefore.add(esimp)
             try:
                 if (fromHash, toHash) not in seenEdges:
-
-                    dot.edge(esimp,simp, label= "apps: " + str(len(graph.edges[fromHash,toHash]))) #+ ",\n".join([e.split(".")[-1] for e in list(graph.edges[fromHash,toHash])]))#
+                    numApps = len(graph.edges[fromHash,toHash])
+                    if (numApps > largestPCsize):
+                        largestPCsize=numApps
+                        edgeWithlargestPCsize=(graph.hashToObjectMapping[fromHash],graph.hashToObjectMapping[toHash])
+                    dot.edge(esimp,simp, label= "apps: " + str(numApps)) #+ ",\n".join([e.split(".")[-1] for e in list(graph.edges[fromHash,toHash])]))#
                     seenEdges.add((fromHash, toHash))
             except:
                 pass
             before = hash
     print "Nodes in flows: %i" % len(seenBefore)
     print "Edges in flows: %i" % len(edges)
+    if (largestPCsize>0):
+        print "Largest PC Size: %i" % largestPCsize
+        print "on Edge: " + str(edgeWithlargestPCsize[0]) + str(edgeWithlargestPCsize[1])
     dot.render("sifta-graph.gv", view=False)
     print "ALL DONE"
 

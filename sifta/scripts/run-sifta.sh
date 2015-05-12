@@ -18,12 +18,22 @@ export android_jar=$sdk_platforms/android-16/android.jar
 export rt_jar=/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/rt.jar
 
 
-export jvm_flags="-Xmx600m"
-export max_mem=2250000
-export max_time=4200
+export jvm_flags="-Xmx6000m"
+#export jvm_flags="-Xmx60g"
+#export jvm_flags="-Xmx4000m"
+#export max_mem=2250000
+#export max_time=2000
+#these exports are unused
+export max_mem=0
+export max_time=0
+
+export timeout_sec=1200 # 20 minutes
+#export timeout_sec=86400 # 24 hours
+
 export python=python2
 
 #---------------------------------------------------------
+java -version
 
 if [ $# -lt 2 ]; then
     echo "Usage: `basename $0` outdir apk_1 ... apk_n"
@@ -55,10 +65,12 @@ do
     then
 	echo $apk_file Exists;
     else
-        timeout 600s $script_path/run-transformer.sh $outdir $apk_file
+        /usr/bin/time -f TransformerTime:SystemTime:%S,UserTime:%U,Memory:%M,Real:%E /usr/bin/timeout -k 20s ${timeout_sec}s $script_path/run-transformer.sh $outdir $apk_file
     	if [ $? -ne 0 ]; then continue; fi
-    	timeout 600s $script_path/run-epicc.sh $outdir $apk_file
-    	timeout 600s $script_path/run-flowdroid.sh $outdir $apk_file
+    	/usr/bin/time -f EpiccTime:SystemTime:%S,UserTime:%U,Memory:%M,Real:%E /usr/bin/timeout -k 20s ${timeout_sec}s $script_path/run-epicc.sh $outdir $apk_file
+    	if [ $? -eq 124 ]; then echo "EPICC timeout"; fi
+    	$script_path/run-flowdroid.sh $outdir $apk_file
+    	
 	
 	thishavefailed="false"
 

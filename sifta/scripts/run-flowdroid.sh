@@ -19,7 +19,10 @@ echo Running FlowDroid on $apk_file
 orig_wd=`pwd`
 cd $jar_path
 
-$flowdroid $apk_xform $sdk_platforms --nostatic --aplength 1 --aliasflowins --filterunverifiableflows --pathalgo "contextsensitive" --out $outdir/$apk_base.fd.xml &> $outdir/log/$apk_base.flowdroid.log
+$flowdroid $apk_xform $sdk_platforms --nostatic --aplength 1 --aliasflowins --pathalgo "contextsensitive" --out $outdir/$apk_base.fd.xml &> $outdir/log/$apk_base.flowdroid.log
+
+#$flowdroid $apk_xform $sdk_platforms --nostatic --aplength 1 --aliasflowins --filterunverifiableflows --pathalgo "contextsensitive" --out $outdir/$apk_base.fd.xml &> $outdir/log/$apk_base.flowdroid.log
+
 #--nostatic --aplength 1 --aliasflowins --nocallbacks --layoutmode none
 err=$?; if [ $err -ne 0 ]; then echo "Failure!"; exit $err; fi
 cd $orig_wd

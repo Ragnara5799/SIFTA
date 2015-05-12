@@ -1,0 +1,35 @@
+#1. run the following commands to be fully updated
+
+apt-get update
+
+
+#2. install git
+apt-get install git
+
+#3. install java
+sudo apt-get install openjdk-7-sdk openjdk-7-jre-headless
+
+#4. for dare to work we need 32bit mode
+apt-get install lib32sdc++6 lib32z1 lib32z1-dev
+
+#5. now we need zip
+apt-get install unzip
+
+#6. next we clone the repository
+mkdir git
+git clone https://github.com/mikaelHardo/androidThesis.git
+
+
+#7. when done, edit values in /scripts/run-sifta.sh to match your system 	
+
+#8. To be able to draw the graph, we need graphviz in a specific version (later versions wont work for now)
+
+apt-get install python-pip
+apt-get install graphviz
+sudo pip install graphviz==0.4.1
+
+#9. Then you need to install dare-1.1.0-linux in the same folder as the SIFTA clone 
+	http://siis.cse.psu.edu/dare/installation.html
+	Unpack the file and run ./dex-preopt --bootstrap
+	to setup dare
+#10. Then run ./setupSiftaPath.sh to set absolute paths in the sifta scripts

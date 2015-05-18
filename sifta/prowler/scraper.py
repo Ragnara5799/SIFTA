@@ -8,8 +8,8 @@ import time
 from Queue import Queue
 from googleplay import GooglePlayAPI
 
-startappID = "tamigo.android.activities"
-#startappID = "com.facebook.katana"
+#startappID = "tamigo.android.activities"
+startappID = "com.facebook.katana"
 baseURL = "https://play.google.com/store/apps/details?id="
 appQueue = Queue()
 downloaded = set()
@@ -178,6 +178,6 @@ def downloadAPKs(start):
 
     queueFile.close()
 
-
+appQueue.put(startappID) #not necessary if queue file is already filled
 checkExisting()
 downloadAPKs(startappID)

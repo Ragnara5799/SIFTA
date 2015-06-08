@@ -7,15 +7,20 @@ import threading
 import time
 from Queue import Queue
 from googleplay import GooglePlayAPI
+from google.protobuf import message as message_mod
 
-#startappID = "tamigo.android.activities"
+from clint.textui import colored
+
+#requests.packages.urllib3.disable_warnings()
+
+#startappID = "dk.gst.emergencycall"
 startappID = "com.facebook.katana"
+#startappID = "com.tac.FunFacts"
 baseURL = "https://play.google.com/store/apps/details?id="
 appQueue = Queue()
 downloaded = set()
 downloadQueue = Queue()
 errors = Queue()
-
 
 class CrawlerThread(threading.Thread):
     def __init__(self, destfolder, firstApp):
@@ -34,8 +39,8 @@ class CrawlerThread(threading.Thread):
         while not lst.empty() and self.running:
             #print appQueue.qsize()
             if appQueue.qsize() > 100:
-                time.sleep(1)
-                print "waiting... queue size: " + str(appQueue.qsize())
+                time.sleep(5)
+                #print "waiting... queue size: " + str(appQueue.qsize())
             else:
                 current = lst.get()
                 page = requests.get(baseURL+current)
@@ -77,13 +82,24 @@ class DownloadThread(threading.Thread):
                     version = details.docV2.details.appDetails.versionCode
                     print id + " " + str(version)
                     apk = self.playapi.download(id, version)
-                    print "finished dowloading " + id
+                    print colored.green("finished dowloading ") + id
                     f = open("../playapks/"+id+".apk", 'w')
                     f.write(apk)
                     f.close()
                     print "written " + id + " to file"
+                except message_mod.DecodeError, e:
+                    print colored.red("DecodeError on downloading :") + id
+                    print "Probably google blocked the IP"
+                    print colored.yellow("waiting 2:30 minutes for google to calm down")
+                    appQueue.put(id) # insert this app into the queue again (there was no principal error with the app, google blocked us)
+                    time.sleep(150)
+                    continue
+                except IndexError:
+                    print colored.red("IndexError") + " on downloading :" + id
+                    print "Probably app is not found in app store"
+                    continue
                 except Exception, e:
-                    print "Error on downloading :" + id
+                    print colored.red("Error on downloading :") + id
                     print e
                     errors.put(id)
                     continue
@@ -142,8 +158,7 @@ def downloadAPKs(start):
     playapi = GooglePlayAPI()
     playapi.login("androidhaxor42@gmail.com", "niklashaxor42")
 
-
-    for i in range(10):
+    for i in range(4): # 4 download threads
         t = DownloadThread(appQueue, "../playapks/", playapi)
         t.start()
         threads.append(t)

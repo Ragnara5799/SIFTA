@@ -553,12 +553,12 @@ class FlowSolver:
             (set(intent.intentDefinition.actions) & set(intentFilter.intentDefinition.actions)))
 
         if(len(intent.intentDefinition.actions) == 0):
-            act_ok = True 
+            # act_ok = True 
             # this is necessary for some test cases (e.g., ICC-Bench Implicit3) which use Intents without action labels.
             # setting act_ok to true is more precise in theory.
             # however, Intents without actions should not occur much in practice and bugs in epicc etc. generate Intents without actions.
             # so, we set act_ok to false usually:
-            # act_ok = False
+            act_ok = False
 
         if not act_ok:
             return False

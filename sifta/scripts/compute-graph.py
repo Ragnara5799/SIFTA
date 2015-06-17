@@ -781,8 +781,29 @@ class GraphBuilder:
                 self.graph.nodes[srcHash].add(sinkHash)
         return self.graph
 
+inputFolder=sys.argv[1]
+print "loading graph generation input files from folder " + str(inputFolder)
 
-flowSolver = FlowSolver(sys.argv)
+fileList=[]
+'''
+Files are loaded if files with the same prefix and endings
+.epicc ,
+.fd.xml , and
+.manifest.xml
+exist.
+'''
+for fileName in os.listdir(inputFolder):
+    if fileName.endswith(".epicc"):
+        basename=fileName[:-len(".epicc")]
+        manifestFileName=basename+".manifest.xml"
+        fdFileName=basename+".fd.xml"
+        if (os.path.isfile(fdFileName) and os.path.isfile(manifestFileName)):
+            fileList.append(fileName)
+            fileList.append(manifestFileName)
+            fileList.append(fdFileName)
+            
+#flowSolver = FlowSolver(sys.argv)
+flowSolver = FlowSolver(fileList)
 graphBuilder = GraphBuilder([], flowSolver)
 graph = graphBuilder.createGraph()
 

@@ -8,4 +8,5 @@ echo $outdir
 echo "---"
 
 cd $outdir
-python -t $script_path/compute-graph.py $($script_path/find-processed-apps.sh $outdir)
+#python -t $script_path/compute-graph.py $($script_path/find-processed-apps.sh $outdir)
+python -t $script_path/compute-graph.py $outdir

@@ -187,7 +187,8 @@ def traverse(nodeHash, flow):
                 print ("more than %i flows. breaking off!" % breakOffFlowCount)
                 return
             #print "down the rabithole we go! (flowlength: " + str(len(newFlow)) + ")"
-            traverse(child, newFlow)
+            if (child in graph.nodes): #child has other children
+	            traverse(child, newFlow)
 
 
 sys.stderr.write("Finding flows\n")
@@ -417,8 +418,10 @@ def main(args):
     for node in graph.sources:
         global visitedEdges
         visitedEdges = set()
-
-        traverse(node, GraphFlow([(None,node)], [], graph.hashToObjectMapping))
+        if (not node in graph.nodes): #source has children
+            print ("source is not key in graph.nodes list?!: " + node)
+        else:
+	        traverse(node, GraphFlow([(None,node)], [], graph.hashToObjectMapping))
         if (flowCount > breakOffFlowCount):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break

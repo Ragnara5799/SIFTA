@@ -72,7 +72,9 @@ def process_intent(infile, strip_intent_id=False):
             ret.append({})
             continue
         # Note: ord("[")==0x5b, ord("]")==0x5d
-        regex_one =  "([A-Za-z]+): (\\x5b[^\\x5d]*\\x5d|[^\\x5d\\x5b, ]*)[,\n] *"
+        #regex_one =  "([A-Za-z]+): (\\x5b[^\\x5d]*\\x5d|[^\\x5d\\x5b, ]*)[,\n] *"
+        ## Alex: The additional blank prevented matching of lines like this (blank in Type entry): Package: com/gmail/albanywang2000/onewordnews, Class: com/gmail/albanywang2000/onewordnews/StockActivity, Type: Japan stocks, Extras: [newField_45], 
+        regex_one =  "([A-Za-z]+): (\\x5b[^\\x5d]*\\x5d|[^\\x5d\\x5b,]*)[,\n] *" 
         m = re.match("^ *(" + regex_one + ")*[\n]?$", curline)
         if m == None:
             intent = "ERROR: Unrecognized line: " + curline.strip()

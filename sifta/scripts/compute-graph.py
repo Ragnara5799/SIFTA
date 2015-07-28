@@ -208,7 +208,12 @@ class FlowSolver:
                         except Exception:
                             flowDroidFlows.remove(flow)
                             continue
+                    if not isinstance(epicc, dict):
+                        sys.stdout.write("failure: epicc is something else than a dict:\n")
+                        sys.stdout.write(epicc + "\n")
+                        sys.stdout.flush()
                     if epicc==None: epicc=dict()
+                    
                     
                     action = []
                     category = []

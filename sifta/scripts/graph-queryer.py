@@ -1,8 +1,13 @@
 import sys
 import os
+import random
 from collections import *
 from graphviz import Digraph
 from class_definitions import *
+
+from sets import Set #for filtering
+from itertools import ifilter
+
 
 class GraphFlow:
     def __init__(self, edges, pcs, mapping):
@@ -42,7 +47,8 @@ class GraphFlow:
 graph = Graph()
 graph.load()
 
-breakOffFlowCount= 1000000 # break after many flows found (probably too many then)
+#breakOffFlowCount= 1000000 # break after many flows found (probably too many then)
+breakOffFlowCount= 3000000 # break after many flows found (probably too many then)
 
 algorithm = "extended"
 outputseverity = 0
@@ -179,7 +185,7 @@ def traverse(nodeHash, flow):
             allFlows.add(newFlow)
             flowCount = flowCount + 1
 
-            if flowCount % 100000 == 0:
+            if flowCount % 10000 == 0:
                 sys.stderr.write("\rFlow count: %i" % flowCount)
                 sys.stderr.flush()
         else:
@@ -255,7 +261,7 @@ def printFlowDetails(flows):
 
     #Dangerous
     print "High severity flows:"
-    for flow in allFlows:
+    for flow in flows:
         (fromEdge, toEdge) = flow.edges[0]
         source = graph.hashToObjectMapping[toEdge]
 
@@ -267,7 +273,7 @@ def printFlowDetails(flows):
     if outputseverity != 2:
         #Medium
         print "Medium severity flows:"
-        for flow in allFlows:
+        for flow in flows:
             (fromEdge, toEdge) = flow.edges[0]
             source = graph.hashToObjectMapping[toEdge]
 
@@ -279,7 +285,7 @@ def printFlowDetails(flows):
     if outputseverity == 0:
         #Low
         print "Low severity flows:"
-        for flow in allFlows:
+        for flow in flows:
             (fromEdge, toEdge) = flow.edges[0]
             source = graph.hashToObjectMapping[toEdge]
 
@@ -290,7 +296,7 @@ def printFlowDetails(flows):
 
     #Unknown
     print "Unknown severity flows:"
-    for flow in allFlows:
+    for flow in flows:
         (fromEdge, toEdge) = flow.edges[0]
         source = graph.hashToObjectMapping[toEdge]
 
@@ -300,7 +306,7 @@ def printFlowDetails(flows):
             print flow
 
 
-    for flow in allFlows:
+    for flow in flows:
         datLength = len(flow.edges)
         if datLength not in flowlengths:
             flowlengths[datLength] = 0
@@ -400,11 +406,15 @@ def main(args):
 
     printAllFlows=False
     printStatistics=False
+    printSampleFlows=False
     arguments=sys.argv
     if (len(arguments[1:]) > 0):
         if "-printAllFlows" in arguments:
             print("Printing all flows.")
             printAllFlows=True
+        if "-printSampleFlows" in arguments:
+            print("Printing a sample of the flows (100 flows with length > 2).")
+            printSampleFlows=True
         if "-printStatistics" in arguments:
             print("Printing statistics.")
             printStatistics=True
@@ -429,6 +439,11 @@ def main(args):
     if len(allFlows)==0:
         print("0 flows found!")
     else:
+        if printSampleFlows:
+            print("computing sample")
+            sample = random.sample(Set(ifilter(lambda flow: len(flow.edges) > 2 , allFlows)), 10) # 100 flows with more than 2 nodes
+            print("printing sample")
+            printFlowDetails(sample)
         if printAllFlows:
             printFlowDetails(allFlows)
         maxLen=printFlowLengthsDetailsReturnMax(allFlows)

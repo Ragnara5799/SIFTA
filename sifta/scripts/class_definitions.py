@@ -499,13 +499,15 @@ class Graph:
         sys.stderr.write("Finished saving graph to file\n")
 
     def load(self):
+        self.loadFromDir ("./") # search for graph files in current path
+    def loadFromDir(self, graphFileDir):
         sys.stderr.write("Loading graph\n")
-        if not os.path.isfile(self.graphFileName) or not os.path.isfile(self.graphFileName):
+        if not os.path.isfile(graphFileDir + self.graphFileName) or not os.path.isfile(graphFileDir + self.graphFileName):
             print "cant find files"
             return
 
-        graphfile = open(self.graphFileName, "r")
-        mappingfile = open(self.mappingFileName, "r")
+        graphfile = open(graphFileDir + self.graphFileName, "r")
+        mappingfile = open(graphFileDir + self.mappingFileName, "r")
 
         graphXML = ET.fromstring("".join(graphfile.readlines()))
         mappingXML = ET.fromstring("".join(mappingfile.readlines()))

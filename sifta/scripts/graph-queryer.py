@@ -194,7 +194,7 @@ def traverse(nodeHash, flow):
                 return
             #print "down the rabithole we go! (flowlength: " + str(len(newFlow)) + ")"
             if (child in graph.nodes): #child has other children
-	            traverse(child, newFlow)
+                traverse(child, newFlow)
 
 
 sys.stderr.write("Finding flows\n")
@@ -334,6 +334,45 @@ def printFirstFlowWithLen(flows, length):
             print flow
             break
 
+def appStatistics(flows):
+    print "App Stats:"
+    occurrencesPerApp=dict()
+    intermediaryApps=set() # apps that receive and intent and send an intent (can be used for info forwarding)
+    for flow in allFlows:
+        #get intermediary
+        if (len(flow.pcs) > 2):
+            for pc in flow.pcs[1:-1]: # all pcs but the first and last one
+                for appId in pc:
+                    intermediaryApps.add(appId)
+        #get occurrances
+        appsInPath=set()
+        for pc in flow.pcs:
+            for appId in pc:
+                appsInPath.add(appId)
+        for app in appsInPath:
+            if app not in occurrencesPerApp:
+                occurrencesPerApp[app] = 0
+            occurrencesPerApp[app] += 1
+    sortedOccurrences=sorted(occurrencesPerApp, key=occurrencesPerApp.get, reverse=True)
+    
+    print "Rank\t App ID\t Occurrences in Flows"
+    for x in range(0,10):
+        print x, "\t", sortedOccurrences[x], "\t", occurrencesPerApp[sortedOccurrences[x]]
+    print "Total number of apps in pcs: ", len(occurrencesPerApp)
+    appStatsFile = open("appOccurrences.csv", "w+")
+    appStatsFile.write("AppID\tOccurrencesInFlows\n")
+    for app in sortedOccurrences:
+        appStatsFile.write(app + "\t" + str(occurrencesPerApp[app]) + "\n")
+    appStatsFile.close()
+    
+    print "Total number intermediary apps: ", len(intermediaryApps)
+    intermAppStatsFile = open("intermediaryApps.csv", "w+")
+    intermAppStatsFile.write("AppID\n")
+    for app in intermediaryApps:
+        intermAppStatsFile.write(app + "\n")
+    intermAppStatsFile.close()
+    
+
 def printFlowLengthsDetailsReturnMax(flows):
     flowlengths = dict()
     maxLen = 0
@@ -407,6 +446,7 @@ def main(args):
     printAllFlows=False
     printStatistics=False
     printSampleFlows=False
+    printAppStatistics=False
     arguments=sys.argv
     if (len(arguments[1:]) > 0):
         if "-printAllFlows" in arguments:
@@ -418,6 +458,9 @@ def main(args):
         if "-printStatistics" in arguments:
             print("Printing statistics.")
             printStatistics=True
+        if "-printAppStats" in arguments:
+            print("Printing app statistics.")
+            printAppStatistics=True
     if not printAllFlows:
         print("Printing only one flow of max. found length. Use -printAllFlows to print all.")
     if not printStatistics:
@@ -431,7 +474,7 @@ def main(args):
         if (not node in graph.nodes): #source has children
             print ("source is not key in graph.nodes list?!: " + node)
         else:
-	        traverse(node, GraphFlow([(None,node)], [], graph.hashToObjectMapping))
+            traverse(node, GraphFlow([(None,node)], [], graph.hashToObjectMapping))
         if (flowCount > breakOffFlowCount):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break
@@ -448,6 +491,8 @@ def main(args):
             printFlowDetails(allFlows)
         maxLen=printFlowLengthsDetailsReturnMax(allFlows)
         printFirstFlowWithLen(allFlows, maxLen)
+        if printAppStatistics:
+            appStatistics(allFlows)
         if printStatistics:
             graph.printAllStatistics()
         #graph.drawGraph()

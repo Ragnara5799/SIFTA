@@ -7,9 +7,9 @@ paths_local="$script_path/paths.local.sh"
 
 
 #----------- change these parameters: -------------------
-export sifta=~/git/androidThesis/sifta
+export sifta=/home/ragnara/Schreibtisch/AppAnalyse/SIFTA/sifta
 export epicc_dir=$sifta/epicc
-export dare_dir=/home/niklas/Downloads/dare-1.1.0-linux
+export dare_dir=/home/ragnara/Schreibtisch/AppAnalyse/SIFTA/../dare-1.1.0-linux
 export dare=$dare_dir/dare
 export jar_path=$sifta/jars
 
@@ -22,8 +22,6 @@ export jvm_flags="-Xmx600m"
 export max_mem=2250000
 export max_time=4200
 export python=python2
-
-export timeout_sec=1200 # 20 minutes
 
 #---------------------------------------------------------
 

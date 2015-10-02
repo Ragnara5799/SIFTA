@@ -507,6 +507,7 @@ def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, suppor
     newRemovedAppCombos = newAppSet[1]
     currentStep = step
     while len(nextAppSet) != 0:
+        print("next AppSet size: " + str(len(nextAppSet)))
         print("start step " + str(currentStep) + " at " + str(time.localtime()))
         nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
         output = open("SupportSet" + str(currentStep) + ".pkl", 'w')

@@ -8,6 +8,7 @@ import time
 from collections import *
 from graphviz import Digraph
 from class_definitions import *
+from appGraph_definition import AppGraph
 
 from sets import Set #for filtering
 from itertools import ifilter
@@ -425,168 +426,44 @@ def printFlows(flows):
                 print str(realObject) + "\n--> (" + ",".join(graph.edges[(hash, flow[i + 1])]) + ")"
             i += 1
 
-def computeAppsInFlows(allFlows, graph):
-    appsToFlow = dict()
-    allApps = set()
-    for flow in allFlows:
-        apps = set()
-        for edge in flow.edges:
-            if edge in graph.edges:
-                for app in graph.edges[edge]:
-                    apps.add(app)
-                    allApps.add(app)
-        newPair = {flow:apps}
-        appsToFlow.update(newPair)
-    return [appsToFlow,allApps]
-
-def computeEdgesInFlows(allFlows, graph):
-    appsToFlow = []
-    for flow in allFlows:
-        apps = []
-        for edge in flow.edges:
-            if edge in graph.edges:
-                edgeSet = set()
-                for app in graph.edges[edge]:
-                    edgeSet.add(app)
-                apps.append(edgeSet)
-        appsToFlow.append(apps)
-    return appsToFlow
-
-def computeFirstSupportSet(appsToFlow, allApps):
-    appSupport = dict()
-    for app in allApps:
-        supportCounter = 0
-        for flow in appsToFlow:
-            if app in appsToFlow[flow]:
-                supportCounter += 1
-        newPair = {app : supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSetEdgeBased(edgeToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for edge in edgeToFlow:
-            removedEdges = []
-            if len(app) <= len(edge):
-                if containsAppCombosInDifferentEdges(app, edge, 0, removedEdges) == 1:
-                    supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSet(appsToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for flow in appsToFlow:
-            isInFlow = 0
-            for singleApp in app:
-                if singleApp not in appsToFlow[flow]:
-                    isInFlow += 1
-            if isInFlow == 0:
-                supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, supportMinimum, step):
-    appsForNextStep = set()
-    permutations = set()
-    newAppSet = list()
-    # compute candidates for next step
-    for app in previousSupportDict:
-        if previousSupportDict[app] > supportMinimum:
-            appsForNextStep.add(app)
-        else:
-            removedAppCombos.append(app)
-    for app in appsForNextStep:
-        for singleApp in singleApps:
-            if singleApp not in app:
-                newTupel = ()
-                if step == 2:
-                    newTupel = newTupel + (app,)
-                else:
-                    newTupel = newTupel + app
-                newTupel = newTupel + (singleApp,)
-                if newTupel not in permutations:
-                    if containsRemovedAppCombos(newTupel, removedAppCombos) == 0:
-                        newPermutations = itertools.permutations(newTupel,step)
-                        for per in newPermutations:
-                            permutations.add(per)
-                        newAppSet.append(newTupel)
-    return (newAppSet,removedAppCombos)
-                        
-def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
-    if deep >= len(appCombo):
-        return 1
-    currentApp = appCombo[deep]
-    for edge in edgeSet:
-        if edge not in removedEdges:
-            if currentApp in edge:
-                removedEdges.append(edge)
-                if containsAppCombosInDifferentEdges(appCombo, edgeSet, deep + 1, removedEdges) == 1:
-                    removedEdges.remove(edge)
-                    return 1
-                else:
-                    removedEdges.remove(edge)
-    return 0
-
-def containsRemovedAppCombos(newTupel, removedAppCombos):
-    contains = 0
-    for removedCombo in removedAppCombos:  
-        contains = 1 
-        for app in removedCombo:
-            if app not in newTupel:
-                contains = 0
-        if contains == 1:
-            return 1
-    return 0
-
-def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
-        output = open("SupportSet" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombos" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]
-
-def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSetEdgeBased(edgesToFlow, nextAppSet)
-        output = open("SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]    
-    
         
+def computeAppDegreeInAppGraph(appGraph):
+    outgoingRet = dict()
+    incomingRet = dict()
+    for app in appGraph.apps:
+        newOutPair = {app:0}
+        newInPair = {app:0}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    for edge in appGraph.edges:
+        incomingApp = edge[1]
+        outgoingApp = edge[0]
+        incomingDegree = incomingRet[incomingApp] + 1
+        outgoingDegree = outgoingRet[outgoingApp] + 1
+        newOutPair = {outgoingApp:outgoingDegree}
+        newInPair = {incomingApp:incomingDegree}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    return (outgoingRet,incomingRet)
+
+def computeAppDegreeInAppGraphLenOfEdges(appGraph):
+    outgoingRet = dict()
+    incomingRet = dict()
+    for app in appGraph.apps:
+        newOutPair = {app:0}
+        newInPair = {app:0}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    for edge in appGraph.edges:
+        incomingApp = edge[1]
+        outgoingApp = edge[0]
+        incomingDegree = incomingRet[incomingApp] + len(appGraph.edges[edge])
+        outgoingDegree = outgoingRet[outgoingApp] + len(appGraph.edges[edge])
+        newOutPair = {outgoingApp:outgoingDegree}
+        newInPair = {incomingApp:incomingDegree}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    return (outgoingRet,incomingRet)
 def main(args):
     global pcapps
     global outputseverity
@@ -662,67 +539,57 @@ def main(args):
             graph.printAllStatistics()
         #graph.drawGraph()
         #drawGraph()
-#-------------------------------------------------------------------------------------------
+#-----------------------------------from here on my code--------------------------------------------------------
 
-    appsInFlows = computeAppsInFlows(allFlows, graph)
-    appsOfFlows = appsInFlows[0]
-    allApps = appsInFlows[1]
-    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
-    #firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
-    input = open('firstSupportSet.pkl')
-    firstSupportSet = pickle.load(input)
+    appGraph = AppGraph()
+    appGraph.convertGraphIntoAppGraph(graph)
+    print("lenght of Apps: " + str(len(appGraph.apps)))
+    print("lenght of Edges: " + str(len(appGraph.edges)))
+    counter = 0
+    print "#######"
+                 
+    degreeDictionarys = computeAppDegreeInAppGraph(appGraph)
+    output = open('degreeOfAppGraphNumberOfEdges.pkl', 'w')
+    pickle.dump(degreeDictionarys, output)
+    output.close()
+    degDict = computeAppDegreeInAppGraphLenOfEdges(appGraph)
+    output = open('degreeOfAppGraphLengthOfEdges.pkl', 'w')
+    pickle.dump(degDict, output)
+    output.close()
+    
+    input = open('degreeOfAppGraphLengthOfEdges.pkl')
+    data = pickle.load(input)
     input.close()
-    #sortedFirstSupportSet = sorted(firstSupportSet.items(), key=operator.itemgetter(1))
-    print("appsOfFlows: " + str(len(appsOfFlows)))
-    print("allApps: " + str(len(allApps)))
-    interestingApps = set()
-    for app in firstSupportSet:
-        if firstSupportSet[app] > 2000:
-            interestingApps.add(app)
-    print("instresting Apps: " + str(len(interestingApps)))
-    appPairs = set()
-    redundantAppPairs = set()
-    for firstApp in interestingApps:
-        for secondApp in interestingApps:
-            if firstApp != secondApp:
-                newSet = set()
-                newSet.add(firstApp)
-                newSet.add(secondApp)
-                newList = (firstApp, secondApp)
-                if newList not in redundantAppPairs:
-                    appPairs.add(newList)
-                redundantAppPairs.add((secondApp,firstApp))
-    print("appSet: " + str(len(appPairs)))
-    print("start Algorithm")
-    removedAppCombos = list()
-#    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, 1500, 2)
+    dataOutgoing = data[0]
+    dataIncoming = data[1]
+    dataCombined = dict()
+    for app in appGraph.apps:
+        combinedDegree = dataOutgoing[app] + dataIncoming[app]
+        newPair = {app:combinedDegree}
+        dataCombined.update(newPair)
+        
+    dataSorted = sorted(dataCombined.items(), key=operator.itemgetter(1))
+    file = open("AppDegree.txt", "a")
+    for d in dataSorted:
+        file.write(str(d) + "\n")
+    file.close()
+    maxDegree = dataSorted[-1][1]
     
-    #supportSetEdgeBased = computeSupportSetEdgeBased(edgesOfFlows, appPairs)
-#    supportSet = computeSupportSet(appsOfFlows, appPairs)
-#    output = open('secondSupportSet.pkl', 'w')
-#    pickle.dump(supportSet, output)
-#    output.close()
-
-
-
-    input2 = open('SupportSet5.pkl')
-    startSupportSet = pickle.load(input2)
-    input2.close()
-#    input3 = open('removedAppCombos4.pkl')
-#    removedAppCombos = pickle.load(input3)
-#    input3.close()
-#    counter = 3
-#    print("start at " + str(time.localtime()))
-    #removedAppCombos = list()
-#    setMining(interestingApps, startSupportSet, appsOfFlows, removedAppCombos, 2000, 3)
+    degree = 0
+    dataDegreeCount = dict()
+    while degree < maxDegree + 1:
+        newPair = {degree:0}
+        dataDegreeCount.update(newPair)
+        degree += 1
+    for data in dataCombined:
+        dataCount = dataCombined[data]
+        degreeCount = dataDegreeCount[dataCount] + 1
+        newPair = {dataCount:degreeCount}
+        dataDegreeCount.update(newPair)
+    file = open("DegreeCount.csv", "a")
+    file.write("Degree,Count \n")
+    for d in dataDegreeCount:
+        file.write(str(d) + "," + str(dataDegreeCount[d]) + "\n")
+    file.close()
     
-    
-    
-    #appSet = computeNextAppSet(interestingApps, secondSupportSet, removedAppCombos, 2000, 3)
-    #print("newAppSet: " + str(len(appSet[0])))
-    sortedSupportSet = sorted(startSupportSet.items(), key=operator.itemgetter(1))
-    for suppSet in sortedSupportSet:
-        print(suppSet)
-    #for app in sortedFirstSupportSet:
-    #    print(str(app))
 main(sys.argv)

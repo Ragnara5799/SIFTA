@@ -9,10 +9,6 @@ from collections import *
 from graphviz import Digraph
 from class_definitions import *
 
-from sets import Set #for filtering
-from itertools import ifilter
-
-
 class GraphFlow:
     def __init__(self, edges, pcs, mapping):
         self.edges = edges
@@ -51,8 +47,7 @@ class GraphFlow:
 graph = Graph()
 graph.load()
 
-#breakOffFlowCount= 1000000 # break after many flows found (probably too many then)
-breakOffFlowCount= 3000000 # break after many flows found (probably too many then)
+breakOffFlowCount= 1000000 # break after many flows found (probably too many then)
 
 algorithm = "extended"
 outputseverity = 0
@@ -143,8 +138,8 @@ def traverse(nodeHash, flow):
 
     for child in children:
         # We have problems with IntentResults, so lets ignore them
-        if isinstance(graph.hashToObjectMapping[child], IntentResult):
-            continue
+        #if isinstance(graph.hashToObjectMapping[child], IntentResult):
+        #    continue
 
         #We want to ignore flows, where an app have more than a 100 flows (we have the list of apps in appsToIgnore)
         appsOnEdge = graph.edges[nodeHash,child]
@@ -189,7 +184,7 @@ def traverse(nodeHash, flow):
             allFlows.add(newFlow)
             flowCount = flowCount + 1
 
-            if flowCount % 10000 == 0:
+            if flowCount % 100000 == 0:
                 sys.stderr.write("\rFlow count: %i" % flowCount)
                 sys.stderr.flush()
         else:
@@ -198,7 +193,7 @@ def traverse(nodeHash, flow):
                 return
             #print "down the rabithole we go! (flowlength: " + str(len(newFlow)) + ")"
             if (child in graph.nodes): #child has other children
-                traverse(child, newFlow)
+	            traverse(child, newFlow)
 
 
 sys.stderr.write("Finding flows\n")
@@ -218,9 +213,6 @@ def drawGraph():
     seenEdges  = set()
     dot = Digraph(comment="Graph")
     print "FLOWS FOUND: " + str(len(allFlows))
-    
-    largestPCsize=0
-    edgeWithlargestPCsize=None
 
     for flow in allFlows:
         edges = flow.edges
@@ -242,20 +234,14 @@ def drawGraph():
                 seenBefore.add(esimp)
             try:
                 if (fromHash, toHash) not in seenEdges:
-                    numApps = len(graph.edges[fromHash,toHash])
-                    if (numApps > largestPCsize):
-                        largestPCsize=numApps
-                        edgeWithlargestPCsize=(graph.hashToObjectMapping[fromHash],graph.hashToObjectMapping[toHash])
-                    dot.edge(esimp,simp, label= "apps: " + str(numApps)) #+ ",\n".join([e.split(".")[-1] for e in list(graph.edges[fromHash,toHash])]))#
+
+                    dot.edge(esimp,simp, label= "apps: " + str(len(graph.edges[fromHash,toHash]))) #+ ",\n".join([e.split(".")[-1] for e in list(graph.edges[fromHash,toHash])]))#
                     seenEdges.add((fromHash, toHash))
             except:
                 pass
             before = hash
     print "Nodes in flows: %i" % len(seenBefore)
     print "Edges in flows: %i" % len(edges)
-    if (largestPCsize>0):
-        print "Largest PC Size: %i" % largestPCsize
-        print "on Edge: " + str(edgeWithlargestPCsize[0]) + str(edgeWithlargestPCsize[1])
     dot.render("sifta-graph.gv", view=False)
     print "ALL DONE"
 
@@ -265,7 +251,7 @@ def printFlowDetails(flows):
 
     #Dangerous
     print "High severity flows:"
-    for flow in flows:
+    for flow in allFlows:
         (fromEdge, toEdge) = flow.edges[0]
         source = graph.hashToObjectMapping[toEdge]
 
@@ -277,7 +263,7 @@ def printFlowDetails(flows):
     if outputseverity != 2:
         #Medium
         print "Medium severity flows:"
-        for flow in flows:
+        for flow in allFlows:
             (fromEdge, toEdge) = flow.edges[0]
             source = graph.hashToObjectMapping[toEdge]
 
@@ -289,7 +275,7 @@ def printFlowDetails(flows):
     if outputseverity == 0:
         #Low
         print "Low severity flows:"
-        for flow in flows:
+        for flow in allFlows:
             (fromEdge, toEdge) = flow.edges[0]
             source = graph.hashToObjectMapping[toEdge]
 
@@ -300,7 +286,7 @@ def printFlowDetails(flows):
 
     #Unknown
     print "Unknown severity flows:"
-    for flow in flows:
+    for flow in allFlows:
         (fromEdge, toEdge) = flow.edges[0]
         source = graph.hashToObjectMapping[toEdge]
 
@@ -310,7 +296,7 @@ def printFlowDetails(flows):
             print flow
 
 
-    for flow in flows:
+    for flow in allFlows:
         datLength = len(flow.edges)
         if datLength not in flowlengths:
             flowlengths[datLength] = 0
@@ -337,45 +323,6 @@ def printFirstFlowWithLen(flows, length):
             print "first flow with length %i :\n" % length
             print flow
             break
-
-def appStatistics(flows):
-    print "App Stats:"
-    occurrencesPerApp=dict()
-    intermediaryApps=set() # apps that receive and intent and send an intent (can be used for info forwarding)
-    for flow in allFlows:
-        #get intermediary
-        if (len(flow.pcs) > 2):
-            for pc in flow.pcs[1:-1]: # all pcs but the first and last one
-                for appId in pc:
-                    intermediaryApps.add(appId)
-        #get occurrances
-        appsInPath=set()
-        for pc in flow.pcs:
-            for appId in pc:
-                appsInPath.add(appId)
-        for app in appsInPath:
-            if app not in occurrencesPerApp:
-                occurrencesPerApp[app] = 0
-            occurrencesPerApp[app] += 1
-    sortedOccurrences=sorted(occurrencesPerApp, key=occurrencesPerApp.get, reverse=True)
-    
-    print "Rank\t App ID\t Occurrences in Flows"
-    for x in range(0,10):
-        print x, "\t", sortedOccurrences[x], "\t", occurrencesPerApp[sortedOccurrences[x]]
-    print "Total number of apps in pcs: ", len(occurrencesPerApp)
-    appStatsFile = open("appOccurrences.csv", "w+")
-    appStatsFile.write("AppID\tOccurrencesInFlows\n")
-    for app in sortedOccurrences:
-        appStatsFile.write(app + "\t" + str(occurrencesPerApp[app]) + "\n")
-    appStatsFile.close()
-    
-    print "Total number intermediary apps: ", len(intermediaryApps)
-    intermAppStatsFile = open("intermediaryApps.csv", "w+")
-    intermAppStatsFile.write("AppID\n")
-    for app in intermediaryApps:
-        intermAppStatsFile.write(app + "\n")
-    intermAppStatsFile.close()
-    
 
 def printFlowLengthsDetailsReturnMax(flows):
     flowlengths = dict()
@@ -425,6 +372,7 @@ def printFlows(flows):
                 print str(realObject) + "\n--> (" + ",".join(graph.edges[(hash, flow[i + 1])]) + ")"
             i += 1
 
+
 def computeAppsInFlows(allFlows, graph):
     appsToFlow = dict()
     allApps = set()
@@ -439,154 +387,29 @@ def computeAppsInFlows(allFlows, graph):
         appsToFlow.update(newPair)
     return [appsToFlow,allApps]
 
-def computeEdgesInFlows(allFlows, graph):
-    appsToFlow = []
-    for flow in allFlows:
-        apps = []
-        for edge in flow.edges:
-            if edge in graph.edges:
-                edgeSet = set()
-                for app in graph.edges[edge]:
-                    edgeSet.add(app)
-                apps.append(edgeSet)
-        appsToFlow.append(apps)
+
+def computeNumberOfFlowsForEachApp(allApps, allFlows, graph):
+    appsToFlow = dict()
+    counter = 0
+    print("start algortihm")
+    for app in allApps:
+        print("start first for-schleife")
+        if counter%10 == 0:
+            print (count)
+        flowCount = 0
+        for flow in allFlows:
+            print("start second for-schleife")
+            for edge in flow.edges:
+                print("start third for-schleife")
+                if edge in graph.edges:
+                    if app in graph.edges[edge]:
+                        flowCount +=1
+                        break
+        counter += 1
+        newPair = {app:flowCount}
+        appsToFlow.update(newPair)
     return appsToFlow
 
-def computeFirstSupportSet(appsToFlow, allApps):
-    appSupport = dict()
-    for app in allApps:
-        supportCounter = 0
-        for flow in appsToFlow:
-            if app in appsToFlow[flow]:
-                supportCounter += 1
-        newPair = {app : supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSetEdgeBased(edgeToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for edge in edgeToFlow:
-            removedEdges = []
-            if len(app) <= len(edge):
-                if containsAppCombosInDifferentEdges(app, edge, 0, removedEdges) == 1:
-                    supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSet(appsToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for flow in appsToFlow:
-            isInFlow = 0
-            for singleApp in app:
-                if singleApp not in appsToFlow[flow]:
-                    isInFlow += 1
-            if isInFlow == 0:
-                supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, supportMinimum, step):
-    appsForNextStep = set()
-    permutations = set()
-    newAppSet = list()
-    # compute candidates for next step
-    for app in previousSupportDict:
-        if previousSupportDict[app] > supportMinimum:
-            appsForNextStep.add(app)
-        else:
-            removedAppCombos.append(app)
-    for app in appsForNextStep:
-        for singleApp in singleApps:
-            if singleApp not in app:
-                newTupel = ()
-                if step == 2:
-                    newTupel = newTupel + (app,)
-                else:
-                    newTupel = newTupel + app
-                newTupel = newTupel + (singleApp,)
-                if newTupel not in permutations:
-                    if containsRemovedAppCombos(newTupel, removedAppCombos) == 0:
-                        newPermutations = itertools.permutations(newTupel,step)
-                        for per in newPermutations:
-                            permutations.add(per)
-                        newAppSet.append(newTupel)
-    return (newAppSet,removedAppCombos)
-                        
-def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
-    if deep >= len(appCombo):
-        return 1
-    currentApp = appCombo[deep]
-    for edge in edgeSet:
-        if edge not in removedEdges:
-            if currentApp in edge:
-                removedEdges.append(edge)
-                if containsAppCombosInDifferentEdges(appCombo, edgeSet, deep + 1, removedEdges) == 1:
-                    removedEdges.remove(edge)
-                    return 1
-                else:
-                    removedEdges.remove(edge)
-    return 0
-
-def containsRemovedAppCombos(newTupel, removedAppCombos):
-    contains = 0
-    for removedCombo in removedAppCombos:  
-        contains = 1 
-        for app in removedCombo:
-            if app not in newTupel:
-                contains = 0
-        if contains == 1:
-            return 1
-    return 0
-
-def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
-        output = open("SupportSet" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombos" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]
-
-def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSetEdgeBased(edgesToFlow, nextAppSet)
-        output = open("SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]    
-    
-        
 def main(args):
     global pcapps
     global outputseverity
@@ -662,67 +485,22 @@ def main(args):
             graph.printAllStatistics()
         #graph.drawGraph()
         #drawGraph()
-#-------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 
     appsInFlows = computeAppsInFlows(allFlows, graph)
+    print("geschafft")
     appsOfFlows = appsInFlows[0]
     allApps = appsInFlows[1]
-    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
-    #firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
-    input = open('firstSupportSet.pkl')
-    firstSupportSet = pickle.load(input)
-    input.close()
-    #sortedFirstSupportSet = sorted(firstSupportSet.items(), key=operator.itemgetter(1))
-    print("appsOfFlows: " + str(len(appsOfFlows)))
-    print("allApps: " + str(len(allApps)))
-    interestingApps = set()
-    for app in firstSupportSet:
-        if firstSupportSet[app] > 2000:
-            interestingApps.add(app)
-    print("instresting Apps: " + str(len(interestingApps)))
-    appPairs = set()
-    redundantAppPairs = set()
-    for firstApp in interestingApps:
-        for secondApp in interestingApps:
-            if firstApp != secondApp:
-                newSet = set()
-                newSet.add(firstApp)
-                newSet.add(secondApp)
-                newList = (firstApp, secondApp)
-                if newList not in redundantAppPairs:
-                    appPairs.add(newList)
-                redundantAppPairs.add((secondApp,firstApp))
-    print("appSet: " + str(len(appPairs)))
-    print("start Algorithm")
-    removedAppCombos = list()
-#    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, 1500, 2)
-    
-    #supportSetEdgeBased = computeSupportSetEdgeBased(edgesOfFlows, appPairs)
-#    supportSet = computeSupportSet(appsOfFlows, appPairs)
-#    output = open('secondSupportSet.pkl', 'w')
-#    pickle.dump(supportSet, output)
-#    output.close()
+    numberOfFlowsPerApp = computeNumberOfFlowsForEachApp(allApps, allFlows, graph)
+    print("geschafft")
+    output = open('numberOfFlowsPerApp.pkl', 'w')
+    pickle.dump(numberOfFlowsPerApp, output)
+    output.close()
+    print("intents: " + str(len(graph.intents)))
+    count = 0
+    for app in numberOfFlowsPerApp:
+        if count < 20:
+            print(str(app) + str(numberOfFlowsPerApp[app]))
+            count += 1
 
-
-
-    input2 = open('SupportSet5.pkl')
-    startSupportSet = pickle.load(input2)
-    input2.close()
-#    input3 = open('removedAppCombos4.pkl')
-#    removedAppCombos = pickle.load(input3)
-#    input3.close()
-#    counter = 3
-#    print("start at " + str(time.localtime()))
-    #removedAppCombos = list()
-#    setMining(interestingApps, startSupportSet, appsOfFlows, removedAppCombos, 2000, 3)
-    
-    
-    
-    #appSet = computeNextAppSet(interestingApps, secondSupportSet, removedAppCombos, 2000, 3)
-    #print("newAppSet: " + str(len(appSet[0])))
-    sortedSupportSet = sorted(startSupportSet.items(), key=operator.itemgetter(1))
-    for suppSet in sortedSupportSet:
-        print(suppSet)
-    #for app in sortedFirstSupportSet:
-    #    print(str(app))
 main(sys.argv)

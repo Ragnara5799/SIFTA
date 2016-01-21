@@ -8,6 +8,7 @@ import time
 from collections import *
 from graphviz import Digraph
 from class_definitions import *
+from appGraph_definition import AppGraph
 
 from sets import Set #for filtering
 from itertools import ifilter
@@ -585,8 +586,195 @@ def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppComb
         newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
         nextAppSet = newAppSet[0]
         newRemovedAppCombos = newAppSet[1]    
+  
+def computeNumberOfFlowsForEachApp(allApps, allFlows, graph):
+    appsToFlow = dict()
+    counter = 0
+    print("start algortihm")
+    for app in allApps:
+        if counter%100 == 0:
+            print (counter)
+        flowCount = 0
+        for flow in allFlows:
+            for edge in flow.edges:
+                if edge in graph.edges:
+                    if app in graph.edges[edge]:
+                        flowCount +=1
+                        break
+        counter += 1
+        newPair = {app:flowCount}
+        appsToFlow.update(newPair)
+    return appsToFlow
+
+def computeNumberOfEdgesForEachApp(allApps, graph):
+    appsToEdge = dict()
+    counter = 0
+    print("start algortihm")
+    for app in allApps:
+        if counter%100 == 0:
+            print (counter)
+        edgeCount = 0
+        for edge in graph.edges:
+            if app in graph.edges[edge]:
+                edgeCount +=1
+        counter += 1
+        newPair = {app:edgeCount}
+        appsToEdge.update(newPair)
+    return appsToEdge
     
+def computeNumberOfFlowsPerEdge(allFlows, edgeSet):
+    edgeToFlows = dict()
+    counter = 0
+    print("start algortihm")
+    for edge in edgeSet:
+        if counter%100 == 0:
+            print (counter)
+        edgeCount = 0
+        for flow in allFlows:
+            if edge in flow.edges:
+                edgeCount += 1
+        counter += 1
+        newPair = {edge:edgeCount}
+        edgeToFlows.update(newPair)
+    return edgeToFlows
+
+def computeNumberOfFlowsPerIntent(allFlows, graph):
+    intentsToFlows = dict()
+    counter = 0
+    for intent in graph.intents:
+        if counter%100 == 0:
+            print (counter)
+        flowCount = 0
+        for flow in allFlows:
+            for edge in flow.edges:
+                if intent in edge:
+                    flowCount += 1
+                    break
+        counter += 1
+        newPair = {intent:flowCount}
+        intentsToFlows.update(newPair)
+    return intentsToFlows
+    
+    
+def computeNumberOfFlowsPerSource(allFlows, graph):
+    sourceToFlows = dict()
+    counter = 0
+    for source in graph.sources:
+        if counter%100 == 0:
+            print (counter)
+        flowCount = 0
+        for flow in allFlows:
+            for edge in flow.edges:
+                if source in edge:
+                    flowCount += 1
+                    break
+        counter += 1
+        newPair = {source:flowCount}
+        sourceToFlows.update(newPair)
+    return sourceToFlows
+
+def computeNumberOfFlowsPerSink(allFlows, graph):
+    sinkToFlows = dict()
+    counter = 0
+    for sink in graph.sinks:
+        if counter%100 == 0:
+            print (counter)
+        flowCount = 0
+        for flow in allFlows:
+            for edge in flow.edges:
+                if sink in edge:
+                    flowCount += 1
+                    break
+        counter += 1
+        newPair = {sink:flowCount}
+        sinkToFlows.update(newPair)
+    return sinkToFlows
+
+def computeNumberOfIncomingEdgesPerIntent(graph):
+    incomingEdgesPerIntent = dict()
+    counter = 0
+    for intent in graph.intents:
+        if counter%100 == 0:
+            print (counter)
+        edgeCount = 0
+        for edge in graph.edges:
+            if edge[1] == intent:
+                edgeCount = edgeCount + len(graph.edges[edge])
+                break
+        counter += 1
+        newPair = {intent:edgeCount}
+        incomingEdgesPerIntent.update(newPair)
+    return incomingEdgesPerIntent
+
+def computeNumberOfOutgoingEdgesPerIntent(graph):
+    incomingEdgesPerIntent = dict()
+    counter = 0
+    for intent in graph.intents:
+        if counter%100 == 0:
+            print (counter)
+        edgeCount = 0
+        for edge in graph.edges:
+            if edge[0] == intent:
+                edgeCount = edgeCount + len(graph.edges[edge])
+                break
+        counter += 1
+        newPair = {intent:edgeCount}
+        incomingEdgesPerIntent.update(newPair)
+    return incomingEdgesPerIntent   
+
+def computeLengthOfFlows(graph, allFlows, minLength):
+    flowCounter = 0     
+    for flow in allFlows:
+        if len(flow.edges) >= minLength:
+            flowCounter += 1
+    return flowCounter
+
+def computeLengthOfFlowsDistribution(maxLength, graph, allFlows):
+    counter = 1
+    lengthToNumberOfFlows = dict()
+    while counter < maxLength:
+        flowCounter = computeLengthOfFlows(graph, allFlows, counter)
+        newPair = {counter:flowCounter}
+        lengthToNumberOfFlows.update(newPair)
+        counter += 1
+    return lengthToNumberOfFlows
         
+def computeAppDegreeInAppGraph(appGraph):
+    outgoingRet = dict()
+    incomingRet = dict()
+    for app in appGraph.apps:
+        newOutPair = {app:0}
+        newInPair = {app:0}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    for edge in appGraph.edges:
+        incomingApp = edge[1]
+        outgoingApp = edge[0]
+        incomingDegree = incomingRet[incomingApp] + 1
+        outgoingDegree = outgoingRet[outgoingApp] + 1
+        newOutPair = {outgoingApp:outgoingDegree}
+        newInPair = {incomingApp:incomingDegree}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    return (outgoingRet,incomingRet)
+def computeAppDegreeInAppGraphLenOfEdges(appGraph):
+    outgoingRet = dict()
+    incomingRet = dict()
+    for app in appGraph.apps:
+        newOutPair = {app:0}
+        newInPair = {app:0}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    for edge in appGraph.edges:
+        incomingApp = edge[1]
+        outgoingApp = edge[0]
+        incomingDegree = incomingRet[incomingApp] + len(appGraph.edges[edge])
+        outgoingDegree = outgoingRet[outgoingApp] + len(appGraph.edges[edge])
+        newOutPair = {outgoingApp:outgoingDegree}
+        newInPair = {incomingApp:incomingDegree}
+        outgoingRet.update(newOutPair)
+        incomingRet.update(newInPair)
+    return (outgoingRet,incomingRet)
 def main(args):
     global pcapps
     global outputseverity
@@ -663,66 +851,148 @@ def main(args):
         #graph.drawGraph()
         #drawGraph()
 #-------------------------------------------------------------------------------------------
-
+#    counter = 0
+#    flowSet = set()
+#    for flow in allFlows:
+#        if counter < 5:
+#            for edge in flow.edges:
+#                if edge[0] == "08e33a7af42aa81ba829c24b590559d9" and edge[1] == "daa47ff7f2f4c8c3de63fc83f8650c70":
+#                    flowSet.add(flow)
+#                    counter += 1
+#    appSet = set()
+#    for flow in flowSet:
+#        file = open("/home/ragnara/Schreibtisch/AppAnalyse/Partitions/FlowsWithEdgeLog.txt", "a")
+#        file.write("flow: " + str(flow) + "\n")
+#        file.write("----------------------------------------\n")
+#        file.close()
+#        for edge in flow.edges:
+#            if edge in graph.edges:
+#                for app in graph.edges[edge]:
+#                    appSet.add(app)
+    
+#    for app in appSet:
+#        file = open("/home/ragnara/Schreibtisch/AppAnalyse/Partitions/AppsInFlowsWithEdgeLog.txt", "a")
+#        file.write("app: " + str(app) + "\n")
+#        file.write("----------------------------------------\n")
+#        file.close()
     appsInFlows = computeAppsInFlows(allFlows, graph)
     appsOfFlows = appsInFlows[0]
     allApps = appsInFlows[1]
-    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
-    #firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
-    input = open('firstSupportSet.pkl')
-    firstSupportSet = pickle.load(input)
+    appToInvestigate = "com.rekonsult.MTFashionAlert"
+    edgeSet = set()
+    for edge in graph.edges:
+        if appToInvestigate in graph.edges[edge]:
+            edgeSet.add(edge)
+    
+    count = 0
+    for intent in graph.edges:
+        if count < 10:
+            print(intent)
+            #print(graph.edges[intent])
+            count += 1
+    
+    appGraph = AppGraph()
+    appGraph.convertGraphIntoAppGraph(graph)
+    print("lenght of Apps: " + str(len(appGraph.apps)))
+    print("lenght of Edges: " + str(len(appGraph.edges)))
+    counter = 0
+    for edge in appGraph.edges:
+        if counter < 10:
+            print(edge)
+            print(appGraph.edges[edge])
+            counter += 1
+    print "#######"
+    appsOfEdge = set()
+    for edge in graph.edges:
+        if edge[1] == "daa47ff7f2f4c8c3de63fc83f8650c70":
+            for app in graph.edges[edge]:
+                appsOfEdge.add(app)
+                
+    '''                
+    degreeDictionarys = computeAppDegreeInAppGraph(appGraph)
+    output = open('degreeOfAppGraphNumberOfEdges.pkl', 'w')
+    pickle.dump(degreeDictionarys, output)
+    output.close()
+    degDict = computeAppDegreeInAppGraphLenOfEdges(appGraph)
+    output = open('degreeOfAppGraphLengthOfEdges.pkl', 'w')
+    pickle.dump(degDict, output)
+    output.close()
+    '''   
+
+    input = open('degreeOfAppGraphLengthOfEdges.pkl')
+    data = pickle.load(input)
     input.close()
-    #sortedFirstSupportSet = sorted(firstSupportSet.items(), key=operator.itemgetter(1))
-    print("appsOfFlows: " + str(len(appsOfFlows)))
-    print("allApps: " + str(len(allApps)))
-    interestingApps = set()
-    for app in firstSupportSet:
-        if firstSupportSet[app] > 2000:
-            interestingApps.add(app)
-    print("instresting Apps: " + str(len(interestingApps)))
-    appPairs = set()
-    redundantAppPairs = set()
-    for firstApp in interestingApps:
-        for secondApp in interestingApps:
-            if firstApp != secondApp:
-                newSet = set()
-                newSet.add(firstApp)
-                newSet.add(secondApp)
-                newList = (firstApp, secondApp)
-                if newList not in redundantAppPairs:
-                    appPairs.add(newList)
-                redundantAppPairs.add((secondApp,firstApp))
-    print("appSet: " + str(len(appPairs)))
-    print("start Algorithm")
-    removedAppCombos = list()
-#    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, 1500, 2)
+    dataOutgoing = data[0]
+    dataIncoming = data[1]
+    dataCombined = dict()
+    for app in appGraph.apps:
+        combinedDegree = dataOutgoing[app] + dataIncoming[app]
+        newPair = {app:combinedDegree}
+        dataCombined.update(newPair)
+    '''    
+    dataSorted = sorted(dataCombined.items(), key=operator.itemgetter(1))
+    file = open("/home/ragnara/Schreibtisch/AppAnalyse/Graph/AppDegree.txt", "a")
+    file.write("Degree,Count \n")
+    for d in dataSorted:
+        file.write(str(d) + "\n")
+    file.close()
+    '''
     
-    #supportSetEdgeBased = computeSupportSetEdgeBased(edgesOfFlows, appPairs)
-#    supportSet = computeSupportSet(appsOfFlows, appPairs)
-#    output = open('secondSupportSet.pkl', 'w')
-#    pickle.dump(supportSet, output)
-#    output.close()
+    degree = 0
+    dataDegreeCount = dict()
+    while degree < 8675:
+        newPair = {degree:0}
+        dataDegreeCount.update(newPair)
+        degree += 1
+    for data in dataCombined:
+        dataCount = dataCombined[data]
+        degreeCount = dataDegreeCount[dataCount] + 1
+        newPair = {dataCount:degreeCount}
+        dataDegreeCount.update(newPair)
+    file = open("/home/ragnara/Schreibtisch/AppAnalyse/Graph/DegreeCount.csv", "a")
+    file.write("Degree,Count \n")
+    for d in dataDegreeCount:
+        file.write(str(d) + "," + str(dataDegreeCount[d]) + "\n")
+    file.close()
+    
 
 
+    #for app in appsOfEdge:
+    #    print app
 
-    input2 = open('SupportSet5.pkl')
-    startSupportSet = pickle.load(input2)
-    input2.close()
-#    input3 = open('removedAppCombos4.pkl')
-#    removedAppCombos = pickle.load(input3)
-#    input3.close()
-#    counter = 3
-#    print("start at " + str(time.localtime()))
-    #removedAppCombos = list()
-#    setMining(interestingApps, startSupportSet, appsOfFlows, removedAppCombos, 2000, 3)
+    #for edge in graph.edges:
+    #    for app in graph.edges[edge]:
+    #        if app == "com.redovals.divyaratna":
+              #  print edge
     
+    #for edge in graph.edges:
+        #if edge[0] == "08e33a7af42aa81ba829c24b590559d9" and edge[1] == "8e21facef8ca2ef165c99074d1a60adb":
+           # print graph.edges[edge]
     
+            
+    #numberOfEdgesPerApp = computeLengthOfFlowsDistribution(20, graph, allFlows)
+    #output = open('lengthOfFlowDistribution.pkl', 'w')
+    #pickle.dump(numberOfEdgesPerApp, output)
+    #output.close()
     
-    #appSet = computeNextAppSet(interestingApps, secondSupportSet, removedAppCombos, 2000, 3)
-    #print("newAppSet: " + str(len(appSet[0])))
-    sortedSupportSet = sorted(startSupportSet.items(), key=operator.itemgetter(1))
-    for suppSet in sortedSupportSet:
-        print(suppSet)
-    #for app in sortedFirstSupportSet:
-    #    print(str(app))
+    #print(numberOfEdgesPerApp)
+    #input = open('OutgoingEdgesPerIntent.pkl')
+    #data = pickle.load(input)
+    #input.close()
+    #dataSorted = sorted(data.items(), key=operator.itemgetter(1))
+    #for d in dataSorted:
+    #    print(str(d))
+
+    #print("edgeSet: " + str(len(edgeSet)))
+    #print("edges; " + str(len(graph.edges)))
+    #print("intents; " + str(len(graph.intents)))
+    #count = 0
+    #for sink in graph.sinks:
+    #    print(sink)
+    #for edge in edgeSet:
+    #    print(str(edge) + " : " + str(len(graph.edges[edge])) )
+    #print("------------------------------------")
+    #for edge in edgeSet:
+    #    print(str(edge) + " : " + str(graph.edges[edge]))
+    
 main(sys.argv)

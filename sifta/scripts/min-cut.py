@@ -2,15 +2,13 @@ import sys
 import os
 import random
 import operator
-import pickle
-import itertools
-import time
 from collections import *
 from graphviz import Digraph
 from class_definitions import *
 
 from sets import Set #for filtering
 from itertools import ifilter
+from random import randint
 
 
 class GraphFlow:
@@ -425,168 +423,170 @@ def printFlows(flows):
                 print str(realObject) + "\n--> (" + ",".join(graph.edges[(hash, flow[i + 1])]) + ")"
             i += 1
 
-def computeAppsInFlows(allFlows, graph):
-    appsToFlow = dict()
-    allApps = set()
+def findPath(graph):
+    visitedGraph = set()
+    currentFlow = []
+
+def computeAllMinWeights(graph, allFlows):
+    minWeightSet = set()
     for flow in allFlows:
-        apps = set()
+        minWeight = -1
+        edgeToRemove = -1
         for edge in flow.edges:
             if edge in graph.edges:
-                for app in graph.edges[edge]:
-                    apps.add(app)
-                    allApps.add(app)
-        newPair = {flow:apps}
-        appsToFlow.update(newPair)
-    return [appsToFlow,allApps]
+                if minWeight == -1:
+                    minWeight = len(graph.edges[edge])
+                    edgeToRemove = edge
+                else:
+                    newWeight = len(graph.edges[edge])
+                    if newWeight < minWeight:
+                        minWeight = newWeight
+        if minWeight != -1:
+            minWeightSet.add(minWeight)
+    return minWeightSet
 
-def computeEdgesInFlows(allFlows, graph):
-    appsToFlow = []
+def computeFlowsCutByApps(cuttingApps, graph, allFlows):
+    flowsCutByApps = dict()
+    currentApp = set()
+    appKeys = []
+    appValues = []
+    counter = 0
+    for app in cuttingApps:
+        counter += 1
+        if(counter%100 == 0):
+            print(str(counter))
+        currentApp.clear()
+        currentApp.add(app)
+        appKeys.append(app)
+        flowCutCounter = 0
+        for flow in allFlows:
+            minWeight = -1
+            for edge in flow.edges:
+                if edge in graph.edges:
+                    if minWeight == -1:
+                        minWeight = len(graph.edges[edge] - currentApp)
+                    else:
+                        newWeight = len(graph.edges[edge] - currentApp)
+                        if newWeight < minWeight:
+                            minWeight = newWeight
+            if minWeight == 0:
+                flowCutCounter += 1
+        appValues.append(flowCutCounter)
+    appZip = zip(appKeys,appValues)
+    appToCutFlows = dict(appZip)
+    return appToCutFlows
+
+def computeCuttingApps(graph, allFlows):
+    cuttingApps = set()
     for flow in allFlows:
-        apps = []
+        minWeight = -1
         for edge in flow.edges:
             if edge in graph.edges:
-                edgeSet = set()
-                for app in graph.edges[edge]:
-                    edgeSet.add(app)
-                apps.append(edgeSet)
-        appsToFlow.append(apps)
-    return appsToFlow
+                if len(graph.edges[edge]) == 1:
+                    for app in graph.edges[edge]:
+                        cuttingApps.add(app)
+    return cuttingApps
 
-def computeFirstSupportSet(appsToFlow, allApps):
-    appSupport = dict()
-    for app in allApps:
-        supportCounter = 0
-        for flow in appsToFlow:
-            if app in appsToFlow[flow]:
-                supportCounter += 1
-        newPair = {app : supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSetEdgeBased(edgeToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for edge in edgeToFlow:
-            removedEdges = []
-            if len(app) <= len(edge):
-                if containsAppCombosInDifferentEdges(app, edge, 0, removedEdges) == 1:
-                    supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSet(appsToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for flow in appsToFlow:
-            isInFlow = 0
-            for singleApp in app:
-                if singleApp not in appsToFlow[flow]:
-                    isInFlow += 1
-            if isInFlow == 0:
-                supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, supportMinimum, step):
-    appsForNextStep = set()
-    permutations = set()
-    newAppSet = list()
-    # compute candidates for next step
-    for app in previousSupportDict:
-        if previousSupportDict[app] > supportMinimum:
-            appsForNextStep.add(app)
-        else:
-            removedAppCombos.append(app)
-    for app in appsForNextStep:
-        for singleApp in singleApps:
-            if singleApp not in app:
-                newTupel = ()
-                if step == 2:
-                    newTupel = newTupel + (app,)
-                else:
-                    newTupel = newTupel + app
-                newTupel = newTupel + (singleApp,)
-                if newTupel not in permutations:
-                    if containsRemovedAppCombos(newTupel, removedAppCombos) == 0:
-                        newPermutations = itertools.permutations(newTupel,step)
-                        for per in newPermutations:
-                            permutations.add(per)
-                        newAppSet.append(newTupel)
-    return (newAppSet,removedAppCombos)
-                        
-def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
-    if deep >= len(appCombo):
-        return 1
-    currentApp = appCombo[deep]
-    for edge in edgeSet:
-        if edge not in removedEdges:
-            if currentApp in edge:
-                removedEdges.append(edge)
-                if containsAppCombosInDifferentEdges(appCombo, edgeSet, deep + 1, removedEdges) == 1:
-                    removedEdges.remove(edge)
-                    return 1
-                else:
-                    removedEdges.remove(edge)
-    return 0
-
-def containsRemovedAppCombos(newTupel, removedAppCombos):
-    contains = 0
-    for removedCombo in removedAppCombos:  
-        contains = 1 
-        for app in removedCombo:
-            if app not in newTupel:
-                contains = 0
-        if contains == 1:
-            return 1
-    return 0
-
-def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
-        output = open("SupportSet" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombos" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]
-
-def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSetEdgeBased(edgesToFlow, nextAppSet)
-        output = open("SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]    
+def computePartialMinCut(graph, allFlows, goal):
+    allFlowsCopy = allFlows.copy()
+    appsToRemove = set()
+    while len(allFlowsCopy) != 0:
+        cuttingApps = computeCuttingApps(graph, allFlowsCopy)
+        if len(cuttingApps) == 0:
+            break
+        if float(len(allFlowsCopy)) / float(len(allFlows)) <= 1 - goal:
+            break
+        appToCutFlows = computeFlowsCutByApps(cuttingApps, graph, allFlowsCopy)
+        sortedAppToCutFlows = sorted(appToCutFlows.items(), key=operator.itemgetter(1))
+        appsToRemove.add(sortedAppToCutFlows[-1][0])
+        allFlowsCopy = updateFlows(allFlowsCopy, appsToRemove)
+    return [appsToRemove, allFlowsCopy]
     
-        
+def updateFlows(allFlows, removedApps):
+    flowsToRemove = set()
+    for flow in allFlows:
+        minWeight = -1
+        for edge in flow.edges:
+            if edge in graph.edges:
+                if minWeight == -1:
+                    minWeight = len(graph.edges[edge] - removedApps)
+                else:
+                    newWeight = len(graph.edges[edge] - removedApps)
+                    if newWeight < minWeight:
+                        minWeight = newWeight
+        if minWeight == 0:
+            flowsToRemove.add(flow)
+    for flow in flowsToRemove:
+        allFlows.discard(flow)
+    return allFlows
+
+def computeMinCut(graph, allFlows):
+    removedEdges = set()
+    removedApps = set()
+    minWeightSum = 0
+    numberOfMinWeight = 0
+    flowCutCounter = 0
+    for flow in allFlows:
+        if len(set(flow.edges).intersection(removedEdges)) == 0:
+            minWeight = -1
+            edgeToRemove = -1
+            for edge in flow.edges:
+                if edge in graph.edges:
+                    if minWeight == -1:
+                        minWeight = len(graph.edges[edge] - removedApps)
+                        edgeToRemove = edge
+                    else:
+                        newWeight = len(graph.edges[edge] - removedApps)
+                        if newWeight < minWeight:
+                            minWeight = newWeight
+                            edgeToRemove = edge
+            if minWeight != -1:
+                numberOfMinWeight += 1
+                minWeightSum = minWeightSum + minWeight
+                removedEdges.add(edgeToRemove)
+                for app in graph.edges[edgeToRemove]:
+                    removedApps.add(app)
+        else:
+            flowCutCounter = flowCutCounter + 1
+    #print("flows that were already cut: " + str(flowCutCounter))
+    #print("minWeightSum: " + str(minWeightSum))
+    #print("numberOfMinWeight: " + str(numberOfMinWeight))
+    return removedApps
+                
+def computeCut(graph, allFlows):
+    removedEdges = set()
+    removedApps = set()
+    minWeightSum = 0
+    numberOfMinWeight = 0
+    flowCutCounter = 0
+    for flow in allFlows:
+        if len(set(flow.edges).intersection(removedEdges)) == 0:
+            minWeight = -1
+            edgeToRemove = -1
+            for edge in flow.edges:
+                if edge in graph.edges:
+                    if minWeight == -1:
+                        minWeight = len(graph.edges[edge] - removedApps)
+                        edgeToRemove = edge
+                    else:
+                        newWeight = len(graph.edges[edge] - removedApps)
+                        if newWeight < minWeight:
+                            minWeight = newWeight
+                            edgeToRemove = edge
+            if minWeight != -1 and minWeight <= 1:
+                numberOfMinWeight += 1
+                minWeightSum = minWeightSum + minWeight
+                removedEdges.add(edgeToRemove)
+                for app in graph.edges[edgeToRemove]:
+                    removedApps.add(app)
+                flowCutCounter += 1;
+        else:
+            flowCutCounter = flowCutCounter + 1
+    print("flows cut: " + str(flowCutCounter))
+    #print("minWeightSum: " + str(minWeightSum))
+    #print("numberOfMinWeight: " + str(numberOfMinWeight))
+    return removedApps
+
 def main(args):
     global pcapps
     global outputseverity
@@ -662,67 +662,41 @@ def main(args):
             graph.printAllStatistics()
         #graph.drawGraph()
         #drawGraph()
-#-------------------------------------------------------------------------------------------
-
-    appsInFlows = computeAppsInFlows(allFlows, graph)
-    appsOfFlows = appsInFlows[0]
-    allApps = appsInFlows[1]
-    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
-    #firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
-    input = open('firstSupportSet.pkl')
-    firstSupportSet = pickle.load(input)
-    input.close()
-    #sortedFirstSupportSet = sorted(firstSupportSet.items(), key=operator.itemgetter(1))
-    print("appsOfFlows: " + str(len(appsOfFlows)))
-    print("allApps: " + str(len(allApps)))
-    interestingApps = set()
-    for app in firstSupportSet:
-        if firstSupportSet[app] > 2000:
-            interestingApps.add(app)
-    print("instresting Apps: " + str(len(interestingApps)))
-    appPairs = set()
-    redundantAppPairs = set()
-    for firstApp in interestingApps:
-        for secondApp in interestingApps:
-            if firstApp != secondApp:
-                newSet = set()
-                newSet.add(firstApp)
-                newSet.add(secondApp)
-                newList = (firstApp, secondApp)
-                if newList not in redundantAppPairs:
-                    appPairs.add(newList)
-                redundantAppPairs.add((secondApp,firstApp))
-    print("appSet: " + str(len(appPairs)))
-    print("start Algorithm")
-    removedAppCombos = list()
-#    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, 1500, 2)
+        
+# min cut part
+    nodeCounter = 0
+    print("beginn mincut algorithm")
+    print("AllFlowsCount: " + str(len(allFlows)))
+    removedApps = computeCut(graph, allFlows)
+    print("removed Apps Cut: " + str(len(removedApps)))
+    removedApps = computeMinCut(graph,allFlows)
+    print("removed Apps MinCut: " + str(len(removedApps)))
+    allApps = set()
+    for edge in graph.edges:
+        for app in graph.edges[edge]:
+            allApps.add(app)
+    print("all apps: " + str(len(allApps)))   
+    for edge in graph.edges:     
+        print(graph.edges[edge])
+        break
+    cuttingApps = computeCuttingApps(graph, allFlows)
+    print("Cutting Apps Size: " + str(len(cuttingApps)))
+    minWeightSet = computeAllMinWeights(graph, allFlows)
+    minWeightCounter = 0;
+    for weight in minWeightSet:
+        if weight > 100:
+            minWeightCounter += 1;
+            #print("Weight: " + str(weight))
+    print("minWeightCounter: " + str(minWeightCounter))
     
-    #supportSetEdgeBased = computeSupportSetEdgeBased(edgesOfFlows, appPairs)
-#    supportSet = computeSupportSet(appsOfFlows, appPairs)
-#    output = open('secondSupportSet.pkl', 'w')
-#    pickle.dump(supportSet, output)
-#    output.close()
-
-
-
-    input2 = open('SupportSet5.pkl')
-    startSupportSet = pickle.load(input2)
-    input2.close()
-#    input3 = open('removedAppCombos4.pkl')
-#    removedAppCombos = pickle.load(input3)
-#    input3.close()
-#    counter = 3
-#    print("start at " + str(time.localtime()))
-    #removedAppCombos = list()
-#    setMining(interestingApps, startSupportSet, appsOfFlows, removedAppCombos, 2000, 3)
+    appsToRemove = computePartialMinCut(graph, allFlows, 0.97)
+    print("removed partial apps: " + str(appsToRemove[0]))
+    print("flows that are left: " + str(len(appsToRemove[1])))
+    print("all Flows : " + str(len(allFlows)))
     
-    
-    
-    #appSet = computeNextAppSet(interestingApps, secondSupportSet, removedAppCombos, 2000, 3)
-    #print("newAppSet: " + str(len(appSet[0])))
-    sortedSupportSet = sorted(startSupportSet.items(), key=operator.itemgetter(1))
-    for suppSet in sortedSupportSet:
-        print(suppSet)
-    #for app in sortedFirstSupportSet:
-    #    print(str(app))
+    #appToCutFlows = computeFlowsCutByApps(cuttingApps, graph, allFlows)
+    #sortedAppToCutFlows = sorted(appToCutFlows.items(), key=operator.itemgetter(1))
+    #print("Sorted AppToCutFlows: " + str(sortedAppToCutFlows))
+    #print("appToCutFlows: " + str(appToCutFlows))
+
 main(sys.argv)

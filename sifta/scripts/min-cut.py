@@ -688,7 +688,7 @@ def main(args):
             minWeightCounter += 1;
             #print("Weight: " + str(weight))
     print("minWeightCounter: " + str(minWeightCounter))
-    minimumCut = 0.97
+    minimumCut = float(sys.argv[1]) #0.97
     appsToRemove = computePartialMinCut(graph, allFlows, minimumCut)
     file = open('partialMinCut.txt', 'w')
     file.write("minimum Percent of Flows Cut: " + str(minimumCut) + "\n")

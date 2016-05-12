@@ -39,12 +39,33 @@ class AppGraph:
         pass
     
     def convertGraphIntoAppGraph(self, graph):
+        self.hashToObjectMapping=graph.hashToObjectMapping
         allApps =set()
         for edge in graph.edges:
             for app in graph.edges[edge]:
                 allApps.add(app)
         self.apps = allApps
         self.intents = graph.intents
+        self.sources=graph.sources
+        self.sinks=graph.sinks
+        for (edgeStart,edgeEnd) in graph.edges:
+            appsInEdge = graph.edges[(edgeStart,edgeEnd)]
+            if isinstance(self.hashToObjectMapping[edgeStart], Source):
+                #must be a info source
+                labels = set()
+                labels.add(edgeStart)
+                for appInEdge in graph.edges[(edgeStart,edgeEnd)]:
+                    newPair = {(self.hashToObjectMapping[edgeStart].method,appInEdge):labels}
+                    self.edges.update(newPair)
+            if isinstance(self.hashToObjectMapping[edgeEnd], Sink):
+                #must be a info sink
+                labels = set()
+                labels.add(edgeEnd)
+                self.edges.update(newPair)
+                for appInEdge in graph.edges[(edgeStart,edgeEnd)]:
+                    newPair = {(appInEdge,self.hashToObjectMapping[edgeEnd].method):labels}
+                    self.edges.update(newPair)
+                self.sinks.add(edgeEnd) #somehow sinks have not been added before
         for edge in graph.edges:
             appsInEdge = graph.edges[edge]
             for edge2 in graph.edges:
@@ -155,21 +176,49 @@ class AppGraph:
         sys.stderr.write("Drawing graph\n")
         seenBefore = set()
         dot = Digraph(comment="Graph")
-        for key,edges in self.nodes.iteritems():
-            simp = str(self.hashToObjectMapping[key])
+        for app in self.apps:
+            simp = app
             if simp not in seenBefore:
                 dot.node(simp, simp)
                 seenBefore.add(simp)
-            for e in edges:
-                esimp = str(self.hashToObjectMapping[e])
-                if esimp not in seenBefore:
-                    dot.node(esimp,esimp)
-                    seenBefore.add(esimp)
-                try:
-                    #dot.edge(simp,esimp, label= ",".join(self.edges[key,e]))
-                    dot.edge(simp,esimp, label= "Apps: {}".format(len(self.edges[key,e])))
-                except:
-                    pass
-        dot.render("graph-test.gv", view=True)
+        for source in self.sources:
+            simp = self.hashToObjectMapping[source].method
+            if simp not in seenBefore:
+                dot.node(simp, simp)
+                seenBefore.add(simp)
+        for sink in self.sinks:
+            simp = self.hashToObjectMapping[sink].method
+            if simp not in seenBefore:
+                dot.node(simp, simp)
+                seenBefore.add(simp)
+        for (start,end) in self.edges:
+            intentHashSet=self.edges[start,end]
+            #esimp = str(self.hashToObjectMapping[intentHash])
+            #dot.node(esimp, esimp)
+            #seenBefore.add(esimp)
+            intentNames=set()
+            for intentHash in intentHashSet:
+                if (intentHash in self.hashToObjectMapping):
+                    obj=self.hashToObjectMapping[intentHash]
+                    if isinstance(obj, Source):
+                        intentNames.add(obj.method)
+                    elif isinstance(obj, Sink):
+                        intentNames.add(obj.method)
+                    elif isinstance(obj, Intent):
+                        intentNames.add(obj.intentDefinition.__str__())
+                    else:
+                        intentNames.add("?")
+                else:
+                    intentNames.add("?")
+            try:
+                #dot.edge(simp,esimp, label= ",".join(self.edges[key,e]))
+                #dot.edge(start,end, label= "Intents: {}".format(",".join(intentNames)))
+                dot.body.append(dot.quote(start) + " -> " 
+                                + dot.quote(end) 
+                                + " [label=" + dot.quote("Intents: {}".format(",".join(intentNames))) + "]"
+                                + "\n")
+            except:
+                pass
+        dot.render("graph-test.gv", view=False)
 
   

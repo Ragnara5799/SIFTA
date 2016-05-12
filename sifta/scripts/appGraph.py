@@ -438,12 +438,14 @@ def computeAppDegreeInAppGraph(appGraph):
     for edge in appGraph.edges:
         incomingApp = edge[1]
         outgoingApp = edge[0]
-        incomingDegree = incomingRet[incomingApp] + 1
-        outgoingDegree = outgoingRet[outgoingApp] + 1
-        newOutPair = {outgoingApp:outgoingDegree}
-        newInPair = {incomingApp:incomingDegree}
-        outgoingRet.update(newOutPair)
-        incomingRet.update(newInPair)
+        if (incomingApp in appGraph.apps):
+            incomingDegree = incomingRet[incomingApp] + 1
+            newInPair = {incomingApp:incomingDegree}
+            incomingRet.update(newInPair)
+        if (outgoingApp in appGraph.apps):
+            outgoingDegree = outgoingRet[outgoingApp] + 1
+            newOutPair = {outgoingApp:outgoingDegree}
+            outgoingRet.update(newOutPair)
     return (outgoingRet,incomingRet)
 
 def computeAppDegreeInAppGraphLenOfEdges(appGraph):
@@ -457,12 +459,14 @@ def computeAppDegreeInAppGraphLenOfEdges(appGraph):
     for edge in appGraph.edges:
         incomingApp = edge[1]
         outgoingApp = edge[0]
-        incomingDegree = incomingRet[incomingApp] + len(appGraph.edges[edge])
-        outgoingDegree = outgoingRet[outgoingApp] + len(appGraph.edges[edge])
-        newOutPair = {outgoingApp:outgoingDegree}
-        newInPair = {incomingApp:incomingDegree}
-        outgoingRet.update(newOutPair)
-        incomingRet.update(newInPair)
+        if (incomingApp in appGraph.apps):
+            incomingDegree = incomingRet[incomingApp] + len(appGraph.edges[edge])
+            newInPair = {incomingApp:incomingDegree}
+            incomingRet.update(newInPair)
+        if (outgoingApp in appGraph.apps):
+            outgoingDegree = outgoingRet[outgoingApp] + len(appGraph.edges[edge])
+            newOutPair = {outgoingApp:outgoingDegree}
+            outgoingRet.update(newOutPair)
     return (outgoingRet,incomingRet)
 def main(args):
     global pcapps
@@ -520,34 +524,17 @@ def main(args):
         if (flowCount > breakOffFlowCount):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break
-        
-    if len(allFlows)==0:
-        print("0 flows found!")
-    else:
-        if printSampleFlows:
-            print("computing sample")
-            sample = random.sample(Set(ifilter(lambda flow: len(flow.edges) > 2 , allFlows)), 10) # 100 flows with more than 2 nodes
-            print("printing sample")
-            printFlowDetails(sample)
-        if printAllFlows:
-            printFlowDetails(allFlows)
-        maxLen=printFlowLengthsDetailsReturnMax(allFlows)
-        printFirstFlowWithLen(allFlows, maxLen)
-        if printAppStatistics:
-            appStatistics(allFlows)
-        if printStatistics:
-            graph.printAllStatistics()
-        #graph.drawGraph()
-        #drawGraph()
+            
 #-----------------------------------from here on my code--------------------------------------------------------
 
     appGraph = AppGraph()
     appGraph.convertGraphIntoAppGraph(graph)
+    appGraph.drawGraph()
     print("lenght of Apps: " + str(len(appGraph.apps)))
     print("lenght of Edges: " + str(len(appGraph.edges)))
     counter = 0
     print "#######"
-                 
+
     degreeDictionarys = computeAppDegreeInAppGraph(appGraph)
     output = open('degreeOfAppGraphNumberOfEdges.pkl', 'w')
     pickle.dump(degreeDictionarys, output)

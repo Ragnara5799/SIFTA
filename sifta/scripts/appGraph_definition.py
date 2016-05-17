@@ -38,6 +38,10 @@ class AppGraph:
     def __init__(self):
         pass
     
+    '''
+    transformiert den normalen Intentgraphen in einen AppGraphen, bei dem die Apps die Knoten sind.
+    Es fehlen noch die Startknoten und Endknoten.
+    '''
     def convertGraphIntoAppGraph(self, graph):
         allApps =set()
         for edge in graph.edges:
@@ -66,6 +70,12 @@ class AppGraph:
                                     self.edges.update(newPair)
                                     
     
+    
+    '''
+    Die weiteren Methoden kommen aus der original graph_definition des Intentgraphen.
+    Welche Dieser Methoden auch fuer diesen Graphen funktionieren weiss ich nicht, da ich sie nie wirklich
+    gebraucht habe.
+    '''
 
     def getNumberOfVertices(self):
         return len(self.nodes.keys())

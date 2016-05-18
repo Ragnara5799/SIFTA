@@ -213,7 +213,7 @@ def getColor(datString):
         return "green"
 
     return ""
-
+#löschen
 def drawGraph():
     seenBefore = set()
     seenEdges  = set()
@@ -426,167 +426,9 @@ def printFlows(flows):
                 print str(realObject) + "\n--> (" + ",".join(graph.edges[(hash, flow[i + 1])]) + ")"
             i += 1
 
-def computeAppsInFlows(allFlows, graph):
-    appsToFlow = dict()
-    allApps = set()
-    for flow in allFlows:
-        apps = set()
-        for edge in flow.edges:
-            if edge in graph.edges:
-                for app in graph.edges[edge]:
-                    apps.add(app)
-                    allApps.add(app)
-        newPair = {flow:apps}
-        appsToFlow.update(newPair)
-    return [appsToFlow,allApps]
-
-def computeEdgesInFlows(allFlows, graph):
-    appsToFlow = []
-    for flow in allFlows:
-        apps = []
-        for edge in flow.edges:
-            if edge in graph.edges:
-                edgeSet = set()
-                for app in graph.edges[edge]:
-                    edgeSet.add(app)
-                apps.append(edgeSet)
-        appsToFlow.append(apps)
-    return appsToFlow
-
-def computeFirstSupportSet(appsToFlow, allApps):
-    appSupport = dict()
-    for app in allApps:
-        supportCounter = 0
-        for flow in appsToFlow:
-            if app in appsToFlow[flow]:
-                supportCounter += 1
-        newPair = {app : supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSetEdgeBased(edgeToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for edge in edgeToFlow:
-            removedEdges = []
-            if len(app) <= len(edge):
-                if containsAppCombosInDifferentEdges(app, edge, 0, removedEdges) == 1:
-                    supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeSupportSet(appsToFlow, appTupel):
-    appSupport = dict()
-    for app in appTupel:
-        supportCounter = 0
-        for flow in appsToFlow:
-            isInFlow = 0
-            for singleApp in app:
-                if singleApp not in appsToFlow[flow]:
-                    isInFlow += 1
-            if isInFlow == 0:
-                supportCounter += 1
-        newPair = {app: supportCounter}
-        appSupport.update(newPair)
-    return appSupport
-
-def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, supportMinimum, step):
-    appsForNextStep = set()
-    permutations = set()
-    newAppSet = list()
-    # compute candidates for next step
-    for app in previousSupportDict:
-        if previousSupportDict[app] > supportMinimum:
-            appsForNextStep.add(app)
-        else:
-            removedAppCombos.append(app)
-    for app in appsForNextStep:
-        for singleApp in singleApps:
-            if singleApp not in app:
-                newTupel = ()
-                if step == 2:
-                    newTupel = newTupel + (app,)
-                else:
-                    newTupel = newTupel + app
-                newTupel = newTupel + (singleApp,)
-                if newTupel not in permutations:
-                    if containsRemovedAppCombos(newTupel, removedAppCombos) == 0:
-                        newPermutations = itertools.permutations(newTupel,step)
-                        for per in newPermutations:
-                            permutations.add(per)
-                        newAppSet.append(newTupel)
-    return (newAppSet,removedAppCombos)
-                        
-def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
-    if deep >= len(appCombo):
-        return 1
-    currentApp = appCombo[deep]
-    for edge in edgeSet:
-        if edge not in removedEdges:
-            if currentApp in edge:
-                removedEdges.append(edge)
-                if containsAppCombosInDifferentEdges(appCombo, edgeSet, deep + 1, removedEdges) == 1:
-                    removedEdges.remove(edge)
-                    return 1
-                else:
-                    removedEdges.remove(edge)
-    return 0
-
-def containsRemovedAppCombos(newTupel, removedAppCombos):
-    contains = 0
-    for removedCombo in removedAppCombos:  
-        contains = 1 
-        for app in removedCombo:
-            if app not in newTupel:
-                contains = 0
-        if contains == 1:
-            return 1
-    return 0
-
-def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
-        output = open("SupportSet" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombos" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]
-
-def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step):
-    newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
-    nextAppSet = newAppSet[0]
-    newRemovedAppCombos = newAppSet[1]
-    currentStep = step
-    while len(nextAppSet) != 0:
-        print("next AppSet size: " + str(len(nextAppSet)))
-        print("start step " + str(currentStep) + " at " + str(time.localtime()))
-        nextSupportDict = computeSupportSetEdgeBased(edgesToFlow, nextAppSet)
-        output = open("SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
-        pickle.dump(newRemovedAppCombos, output2)
-        output2.close()
-        print("step " + str(currentStep) + " finished at " + str(time.localtime()))
-        currentStep += 1
-        newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
-        nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]    
-  
+'''
+Berechnet fuer alle Apps die Anzahl der Flows auf denen diese App liegt.
+'''
 def computeNumberOfFlowsForEachApp(allApps, allFlows, graph):
     appsToFlow = dict()
     counter = 0
@@ -606,6 +448,9 @@ def computeNumberOfFlowsForEachApp(allApps, allFlows, graph):
         appsToFlow.update(newPair)
     return appsToFlow
 
+'''
+Berechnet fuer alle Apps, die Anzahl der Kanten im Graphen auf denen diese App liegt.
+'''
 def computeNumberOfEdgesForEachApp(allApps, graph):
     appsToEdge = dict()
     counter = 0
@@ -621,7 +466,10 @@ def computeNumberOfEdgesForEachApp(allApps, graph):
         newPair = {app:edgeCount}
         appsToEdge.update(newPair)
     return appsToEdge
-    
+
+'''
+Berechnet fuer alle Kanten im Graphen, in wie vielen Flows diese Kante vorkommt.
+'''
 def computeNumberOfFlowsPerEdge(allFlows, edgeSet):
     edgeToFlows = dict()
     counter = 0
@@ -638,6 +486,9 @@ def computeNumberOfFlowsPerEdge(allFlows, edgeSet):
         edgeToFlows.update(newPair)
     return edgeToFlows
 
+'''
+Berechnet fuer alle Intents, in wie vielen Flows der Intent vorkommt.
+'''
 def computeNumberOfFlowsPerIntent(allFlows, graph):
     intentsToFlows = dict()
     counter = 0
@@ -655,7 +506,9 @@ def computeNumberOfFlowsPerIntent(allFlows, graph):
         intentsToFlows.update(newPair)
     return intentsToFlows
     
-    
+'''
+Berechnet fuer alle Quellen, in wie vielen Flows diese Quelle vorkommt.
+'''
 def computeNumberOfFlowsPerSource(allFlows, graph):
     sourceToFlows = dict()
     counter = 0
@@ -673,6 +526,9 @@ def computeNumberOfFlowsPerSource(allFlows, graph):
         sourceToFlows.update(newPair)
     return sourceToFlows
 
+'''
+Berechnet fuer alle Senken, in wie vielen Flows die Senke vorkommt.
+'''
 def computeNumberOfFlowsPerSink(allFlows, graph):
     sinkToFlows = dict()
     counter = 0
@@ -690,6 +546,9 @@ def computeNumberOfFlowsPerSink(allFlows, graph):
         sinkToFlows.update(newPair)
     return sinkToFlows
 
+'''
+Berechnet fuer alle Intents im Graphen, wie viele Kanten zu diesem Intent hinfuehren.
+'''
 def computeNumberOfIncomingEdgesPerIntent(graph):
     incomingEdgesPerIntent = dict()
     counter = 0
@@ -706,6 +565,9 @@ def computeNumberOfIncomingEdgesPerIntent(graph):
         incomingEdgesPerIntent.update(newPair)
     return incomingEdgesPerIntent
 
+'''
+Berechnet fuer alle Intents im Graphen, wie viele Kanten von diesem Intent wegfuehren.
+'''
 def computeNumberOfOutgoingEdgesPerIntent(graph):
     incomingEdgesPerIntent = dict()
     counter = 0
@@ -722,6 +584,9 @@ def computeNumberOfOutgoingEdgesPerIntent(graph):
         incomingEdgesPerIntent.update(newPair)
     return incomingEdgesPerIntent   
 
+'''
+Berechnet wie viele Flows es im Graphen gibt, mit der Mindestlaenge minLength.
+'''
 def computeLengthOfFlows(graph, allFlows, minLength):
     flowCounter = 0     
     for flow in allFlows:
@@ -729,6 +594,10 @@ def computeLengthOfFlows(graph, allFlows, minLength):
             flowCounter += 1
     return flowCounter
 
+'''
+Berechnet bis zur maximalen Laenge maxLength, fuer jede Laenge, wie viele Flows exisitieren, 
+die mindestens diese Laenge besitzen.
+'''
 def computeLengthOfFlowsDistribution(maxLength, graph, allFlows):
     counter = 1
     lengthToNumberOfFlows = dict()
@@ -738,7 +607,11 @@ def computeLengthOfFlowsDistribution(maxLength, graph, allFlows):
         lengthToNumberOfFlows.update(newPair)
         counter += 1
     return lengthToNumberOfFlows
-        
+
+'''
+Berechnet den Knotengrad im Appgraphen. Also wieviele Kanten an den Knoten (im Appgraphen sind das die Apps)
+dranhaengen.
+'''
 def computeAppDegreeInAppGraph(appGraph):
     outgoingRet = dict()
     incomingRet = dict()
@@ -757,6 +630,11 @@ def computeAppDegreeInAppGraph(appGraph):
         outgoingRet.update(newOutPair)
         incomingRet.update(newInPair)
     return (outgoingRet,incomingRet)
+
+'''
+Berechnet die Knotengrade im Appgraphen, wobei der Knotengrad sich fuer jede Kante um die laenge der jeweiligen Kante
+erhoeht (Anzahl der Intents auf der Kante).
+'''
 def computeAppDegreeInAppGraphLenOfEdges(appGraph):
     outgoingRet = dict()
     incomingRet = dict()
@@ -775,6 +653,29 @@ def computeAppDegreeInAppGraphLenOfEdges(appGraph):
         outgoingRet.update(newOutPair)
         incomingRet.update(newInPair)
     return (outgoingRet,incomingRet)
+
+'''
+Berechnet alle Apps und gibt diese als Set zurueck.
+'''
+def computeAllApps(graph, allFlows):
+    allApps = set()
+    for flow in allFlows:
+        for edge in flow.edges:
+            if edge in graph.edges:
+                for app in graph.edges[edge]:
+                    allApps.add(app)
+    return allApps
+
+'''
+Sortiert und speichert die Daten von data in die angegebene Datei
+'''
+def saveData(data, filePath):
+    dataSorted = sorted(data.items(), key=operator.itemgetter(1))
+    file = open(filePath, "w")
+    for d in dataSorted:
+        file.write(str(d) + "\n")
+    file.close()
+    
 def main(args):
     global pcapps
     global outputseverity
@@ -832,96 +733,39 @@ def main(args):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break
         
-    if len(allFlows)==0:
-        print("0 flows found!")
-    else:
-        if printSampleFlows:
-            print("computing sample")
-            sample = random.sample(Set(ifilter(lambda flow: len(flow.edges) > 2 , allFlows)), 10) # 100 flows with more than 2 nodes
-            print("printing sample")
-            printFlowDetails(sample)
-        if printAllFlows:
-            printFlowDetails(allFlows)
-        maxLen=printFlowLengthsDetailsReturnMax(allFlows)
-        printFirstFlowWithLen(allFlows, maxLen)
-        if printAppStatistics:
-            appStatistics(allFlows)
-        if printStatistics:
-            graph.printAllStatistics()
-        #graph.drawGraph()
-        #drawGraph()
 #-------------------------------------------------------------------------------------------
-#    counter = 0
-#    flowSet = set()
-#    for flow in allFlows:
-#        if counter < 5:
-#            for edge in flow.edges:
-#                if edge[0] == "08e33a7af42aa81ba829c24b590559d9" and edge[1] == "daa47ff7f2f4c8c3de63fc83f8650c70":
-#                    flowSet.add(flow)
-#                    counter += 1
-#    appSet = set()
-#    for flow in flowSet:
-#        file = open("/home/ragnara/Schreibtisch/AppAnalyse/Partitions/FlowsWithEdgeLog.txt", "a")
-#        file.write("flow: " + str(flow) + "\n")
-#        file.write("----------------------------------------\n")
-#        file.close()
-#        for edge in flow.edges:
-#            if edge in graph.edges:
-#                for app in graph.edges[edge]:
-#                    appSet.add(app)
-    
-#    for app in appSet:
-#        file = open("/home/ragnara/Schreibtisch/AppAnalyse/Partitions/AppsInFlowsWithEdgeLog.txt", "a")
-#        file.write("app: " + str(app) + "\n")
-#        file.write("----------------------------------------\n")
-#        file.close()
-    appsInFlows = computeAppsInFlows(allFlows, graph)
-    appsOfFlows = appsInFlows[0]
-    allApps = appsInFlows[1]
-    appToInvestigate = "com.rekonsult.MTFashionAlert"
-    edgeSet = set()
-    for edge in graph.edges:
-        if appToInvestigate in graph.edges[edge]:
-            edgeSet.add(edge)
-    
-    count = 0
-    for intent in graph.edges:
-        if count < 10:
-            print(intent)
-            #print(graph.edges[intent])
-            count += 1
-    
+    outputDirectory = args[1]
+    maxLength = int(args[2])
+    allApps = computeAllApps(graph,allFlows)
     appGraph = AppGraph()
     appGraph.convertGraphIntoAppGraph(graph)
     print("lenght of Apps: " + str(len(appGraph.apps)))
     print("lenght of Edges: " + str(len(appGraph.edges)))
-    counter = 0
-    for edge in appGraph.edges:
-        if counter < 10:
-            print(edge)
-            print(appGraph.edges[edge])
-            counter += 1
-    print "#######"
-    appsOfEdge = set()
-    for edge in graph.edges:
-        if edge[1] == "daa47ff7f2f4c8c3de63fc83f8650c70":
-            for app in graph.edges[edge]:
-                appsOfEdge.add(app)
-                
-    '''                
-    degreeDictionarys = computeAppDegreeInAppGraph(appGraph)
-    output = open('degreeOfAppGraphNumberOfEdges.pkl', 'w')
-    pickle.dump(degreeDictionarys, output)
-    output.close()
-    degDict = computeAppDegreeInAppGraphLenOfEdges(appGraph)
-    output = open('degreeOfAppGraphLengthOfEdges.pkl', 'w')
-    pickle.dump(degDict, output)
-    output.close()
-    '''   
-
-    input = open('degreeOfAppGraphLengthOfEdges.pkl')
-    data = pickle.load(input)
-    input.close()
+    
+    data = computeNumberOfFlowsForEachApp(allApps, allFlows, graph)
+    saveData(data, str(outputDirectory) + "/NumberOfFlowsForEachApp.txt")
+    data = computeNumberOfEdgesForEachApp(allApps, graph)
+    saveData(data, str(outputDirectory) + "/NumberOfEdgesForEachApp.txt")
+    data = computeNumberOfFlowsPerEdge(allFlows, edgeSet)
+    saveData(data, str(outputDirectory) + "/NumberOfFlowsPerEdge.txt")
+    data = computeNumberOfFlowsPerIntent(allFlows, graph)
+    saveData(data, str(outputDirectory) + "/NumberOfFlowsPerIntent.txt")
+    data = computeNumberOfFlowsPerSource(allFlows, graph)
+    saveData(data, str(outputDirectory) + "/NumberOfFlowsPerSource.txt")
+    data = computeNumberOfFlowsPerSink(allFlows, graph)
+    saveData(data, str(outputDirectory) + "/NumberOfFlowsPerSink.txt")
+    data = computeNumberOfIncomingEdgesPerIntent(graph)
+    saveData(data, str(outputDirectory) + "/NumberOfIncomingEdgesPerIntent.txt")
+    data = computeNumberOfOutgoingEdgesPerIntent(graph)
+    saveData(data, str(outputDirectory) + "/NumberOfOutgoingEdgesPerIntent.txt")
+    data = computeLengthOfFlowsDistribution(maxLength, graph, allFlows)
+    saveData(data, str(outputDirectory) + "/LengthOfFlowsDistribution.txt")
+    data = computeAppDegreeInAppGraph(appGraph)
+    saveData(data[0], str(outputDirectory) + "/AppDegreeInAppGraphOutgoing.txt")
+    saveData(data[1], str(outputDirectory) + "/AppDegreeInAppGraphIngoing.txt")
+    
+    
+    data = computeAppDegreeInAppGraphLenOfEdges(appGraph)
     dataOutgoing = data[0]
     dataIncoming = data[1]
     dataCombined = dict()
@@ -929,17 +773,17 @@ def main(args):
         combinedDegree = dataOutgoing[app] + dataIncoming[app]
         newPair = {app:combinedDegree}
         dataCombined.update(newPair)
-    '''    
+      
     dataSorted = sorted(dataCombined.items(), key=operator.itemgetter(1))
-    file = open("/home/ragnara/Schreibtisch/AppAnalyse/Graph/AppDegree.txt", "a")
+    file = open(str(outputDirectory) + "/AppDegree.txt", "w")
     file.write("Degree,Count \n")
     for d in dataSorted:
         file.write(str(d) + "\n")
     file.close()
-    '''
     
     degree = 0
     dataDegreeCount = dict()
+    # 8675 ist nur eine grosse Zahl von der ich weiss das es keine Grade dieser groesse gibt
     while degree < 8675:
         newPair = {degree:0}
         dataDegreeCount.update(newPair)
@@ -949,50 +793,11 @@ def main(args):
         degreeCount = dataDegreeCount[dataCount] + 1
         newPair = {dataCount:degreeCount}
         dataDegreeCount.update(newPair)
-    file = open("/home/ragnara/Schreibtisch/AppAnalyse/Graph/DegreeCount.csv", "a")
+    # Datei zur Berechnung der Scalefreeness
+    file = open(str(outputDirectory) + "/DegreeCount.csv", "w")
     file.write("Degree,Count \n")
     for d in dataDegreeCount:
         file.write(str(d) + "," + str(dataDegreeCount[d]) + "\n")
     file.close()
-    
-
-
-    #for app in appsOfEdge:
-    #    print app
-
-    #for edge in graph.edges:
-    #    for app in graph.edges[edge]:
-    #        if app == "com.redovals.divyaratna":
-              #  print edge
-    
-    #for edge in graph.edges:
-        #if edge[0] == "08e33a7af42aa81ba829c24b590559d9" and edge[1] == "8e21facef8ca2ef165c99074d1a60adb":
-           # print graph.edges[edge]
-    
-            
-    #numberOfEdgesPerApp = computeLengthOfFlowsDistribution(20, graph, allFlows)
-    #output = open('lengthOfFlowDistribution.pkl', 'w')
-    #pickle.dump(numberOfEdgesPerApp, output)
-    #output.close()
-    
-    #print(numberOfEdgesPerApp)
-    #input = open('OutgoingEdgesPerIntent.pkl')
-    #data = pickle.load(input)
-    #input.close()
-    #dataSorted = sorted(data.items(), key=operator.itemgetter(1))
-    #for d in dataSorted:
-    #    print(str(d))
-
-    #print("edgeSet: " + str(len(edgeSet)))
-    #print("edges; " + str(len(graph.edges)))
-    #print("intents; " + str(len(graph.intents)))
-    #count = 0
-    #for sink in graph.sinks:
-    #    print(sink)
-    #for edge in edgeSet:
-    #    print(str(edge) + " : " + str(len(graph.edges[edge])) )
-    #print("------------------------------------")
-    #for edge in edgeSet:
-    #    print(str(edge) + " : " + str(graph.edges[edge]))
     
 main(sys.argv)

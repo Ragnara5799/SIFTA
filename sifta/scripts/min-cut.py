@@ -211,52 +211,6 @@ def getColor(datString):
 
     return ""
 
-def drawGraph():
-    seenBefore = set()
-    seenEdges  = set()
-    dot = Digraph(comment="Graph")
-    print "FLOWS FOUND: " + str(len(allFlows))
-    
-    largestPCsize=0
-    edgeWithlargestPCsize=None
-
-    for flow in allFlows:
-        edges = flow.edges
-
-        for (fromHash, toHash) in edges:
-            simp = str(graph.hashToObjectMapping[toHash])
-            if simp not in seenBefore:
-                color = getColor(simp)
-                dot.node(simp, simp, color = color)
-                seenBefore.add(simp)
-
-            if fromHash == None:
-                continue
-
-            esimp = str(graph.hashToObjectMapping[fromHash])
-            if esimp not in seenBefore:
-                color = getColor(esimp)
-                dot.node(esimp,esimp, color = color, constraint= False)
-                seenBefore.add(esimp)
-            try:
-                if (fromHash, toHash) not in seenEdges:
-                    numApps = len(graph.edges[fromHash,toHash])
-                    if (numApps > largestPCsize):
-                        largestPCsize=numApps
-                        edgeWithlargestPCsize=(graph.hashToObjectMapping[fromHash],graph.hashToObjectMapping[toHash])
-                    dot.edge(esimp,simp, label= "apps: " + str(numApps)) #+ ",\n".join([e.split(".")[-1] for e in list(graph.edges[fromHash,toHash])]))#
-                    seenEdges.add((fromHash, toHash))
-            except:
-                pass
-            before = hash
-    print "Nodes in flows: %i" % len(seenBefore)
-    print "Edges in flows: %i" % len(edges)
-    if (largestPCsize>0):
-        print "Largest PC Size: %i" % largestPCsize
-        print "on Edge: " + str(edgeWithlargestPCsize[0]) + str(edgeWithlargestPCsize[1])
-    dot.render("sifta-graph.gv", view=False)
-    print "ALL DONE"
-
 
 def printFlowDetails(flows):
     flowlengths = dict()
@@ -427,24 +381,9 @@ def findPath(graph):
     visitedGraph = set()
     currentFlow = []
 
-def computeAllMinWeights(graph, allFlows):
-    minWeightSet = set()
-    for flow in allFlows:
-        minWeight = -1
-        edgeToRemove = -1
-        for edge in flow.edges:
-            if edge in graph.edges:
-                if minWeight == -1:
-                    minWeight = len(graph.edges[edge])
-                    edgeToRemove = edge
-                else:
-                    newWeight = len(graph.edges[edge])
-                    if newWeight < minWeight:
-                        minWeight = newWeight
-        if minWeight != -1:
-            minWeightSet.add(minWeight)
-    return minWeightSet
-
+'''
+Berechnet fuer alle Apps in cuttingApps, wie viele Flows sie trennen, wenn man sie entfernt.
+'''
 def computeFlowsCutByApps(cuttingApps, graph, allFlows):
     flowsCutByApps = dict()
     currentApp = set()
@@ -476,6 +415,9 @@ def computeFlowsCutByApps(cuttingApps, graph, allFlows):
     appToCutFlows = dict(appZip)
     return appToCutFlows
 
+'''
+Berechnet alle Apps, die mindestens einen Fluss trennen, wenn sie entfernt werden.
+'''
 def computeCuttingApps(graph, allFlows):
     cuttingApps = set()
     for flow in allFlows:
@@ -487,6 +429,16 @@ def computeCuttingApps(graph, allFlows):
                         cuttingApps.add(app)
     return cuttingApps
 
+
+'''
+Berechnet einen partiellen min-cut des Graphen.
+Mit partiellen mincut meinen wir, dass der Algorithmus solange Apps entfernt, bis genug Flows getrennt wurden
+um das Ziel zu erreichen, mit der Einschraenkung das nur Apps entfernt werden, die mindestens einen Flow trennen wenn
+nur die App alleine entfernt wird.
+Das Ziel ist die mindest Anzahl der getrennten Flows in Prozent.
+Der Algorithums stoppt entweder wenn das Ziel erreicht wurde, oder wenn keine App mehr die Einschraenkung
+erfuellt.
+'''
 def computePartialMinCut(graph, allFlows, goal):
     allFlowsCopy = allFlows.copy()
     appsToRemove = set()
@@ -501,7 +453,10 @@ def computePartialMinCut(graph, allFlows, goal):
         appsToRemove.add(sortedAppToCutFlows[-1][0])
         allFlowsCopy = updateFlows(allFlowsCopy, appsToRemove)
     return [appsToRemove, allFlowsCopy]
-    
+
+'''
+Aktualisiert alle Flows im Graphen, indem bereits entfernte Apps auch auf den Kanten entfernt werden
+'''
 def updateFlows(allFlows, removedApps):
     flowsToRemove = set()
     for flow in allFlows:
@@ -520,6 +475,11 @@ def updateFlows(allFlows, removedApps):
         allFlows.discard(flow)
     return allFlows
 
+
+'''
+Berechnet ein Set von Apps, die alle Flows im Graphen trennen, wenn man sie entfernt.
+Aufgrund der Abhaengigkeiten zwischen den Kanten, kann nicht garantiert werden dass dieses Set minimal ist.
+'''
 def computeMinCut(graph, allFlows):
     removedEdges = set()
     removedApps = set()
@@ -527,6 +487,7 @@ def computeMinCut(graph, allFlows):
     numberOfMinWeight = 0
     flowCutCounter = 0
     for flow in allFlows:
+        # ueberprueft ob im aktuellen flow eine Kante vorhanden ist,die bereits entfernt wurde
         if len(set(flow.edges).intersection(removedEdges)) == 0:
             minWeight = -1
             edgeToRemove = -1
@@ -548,45 +509,8 @@ def computeMinCut(graph, allFlows):
                     removedApps.add(app)
         else:
             flowCutCounter = flowCutCounter + 1
-    #print("flows that were already cut: " + str(flowCutCounter))
-    #print("minWeightSum: " + str(minWeightSum))
-    #print("numberOfMinWeight: " + str(numberOfMinWeight))
     return removedApps
                 
-def computeCut(graph, allFlows):
-    removedEdges = set()
-    removedApps = set()
-    minWeightSum = 0
-    numberOfMinWeight = 0
-    flowCutCounter = 0
-    for flow in allFlows:
-        if len(set(flow.edges).intersection(removedEdges)) == 0:
-            minWeight = -1
-            edgeToRemove = -1
-            for edge in flow.edges:
-                if edge in graph.edges:
-                    if minWeight == -1:
-                        minWeight = len(graph.edges[edge] - removedApps)
-                        edgeToRemove = edge
-                    else:
-                        newWeight = len(graph.edges[edge] - removedApps)
-                        if newWeight < minWeight:
-                            minWeight = newWeight
-                            edgeToRemove = edge
-            if minWeight != -1 and minWeight <= 1:
-                numberOfMinWeight += 1
-                minWeightSum = minWeightSum + minWeight
-                removedEdges.add(edgeToRemove)
-                for app in graph.edges[edgeToRemove]:
-                    removedApps.add(app)
-                flowCutCounter += 1;
-        else:
-            flowCutCounter = flowCutCounter + 1
-    print("flows cut: " + str(flowCutCounter))
-    #print("minWeightSum: " + str(minWeightSum))
-    #print("numberOfMinWeight: " + str(numberOfMinWeight))
-    return removedApps
-
 def main(args):
     global pcapps
     global outputseverity
@@ -644,31 +568,12 @@ def main(args):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break
         
-    if len(allFlows)==0:
-        print("0 flows found!")
-    else:
-        if printSampleFlows:
-            print("computing sample")
-            sample = random.sample(Set(ifilter(lambda flow: len(flow.edges) > 2 , allFlows)), 10) # 100 flows with more than 2 nodes
-            print("printing sample")
-            printFlowDetails(sample)
-        if printAllFlows:
-            printFlowDetails(allFlows)
-        maxLen=printFlowLengthsDetailsReturnMax(allFlows)
-        printFirstFlowWithLen(allFlows, maxLen)
-        if printAppStatistics:
-            appStatistics(allFlows)
-        if printStatistics:
-            graph.printAllStatistics()
-        #graph.drawGraph()
-        #drawGraph()
         
-# min cut part
+# ---------------------min cut part-------------------------
+    ouputDirectory = args[2]  
     nodeCounter = 0
     print("beginn mincut algorithm")
     print("AllFlowsCount: " + str(len(allFlows)))
-    removedApps = computeCut(graph, allFlows)
-    print("removed Apps Cut: " + str(len(removedApps)))
     removedApps = computeMinCut(graph,allFlows)
     print("removed Apps MinCut: " + str(len(removedApps)))
     allApps = set()
@@ -680,17 +585,16 @@ def main(args):
         print(graph.edges[edge])
         break
     cuttingApps = computeCuttingApps(graph, allFlows)
+    flowsCutByApps = computeFlowsCutByApps(cuttingApps, graph, allFlows)
+    sortedFlowsCutByApps = sorted(flowsCutByApps.items(), key=operator.itemgetter(1))
+    file = open(str(ouputDirectory) + "flowsCutByApps.txt","w")
+    for flow in sortedFlowsCutByApps:
+        file.write(str(flow) + "\n")
+    file.close()
     print("Cutting Apps Size: " + str(len(cuttingApps)))
-    minWeightSet = computeAllMinWeights(graph, allFlows)
-    minWeightCounter = 0;
-    for weight in minWeightSet:
-        if weight > 100:
-            minWeightCounter += 1;
-            #print("Weight: " + str(weight))
-    print("minWeightCounter: " + str(minWeightCounter))
     minimumCut = float(sys.argv[1]) #0.97
     appsToRemove = computePartialMinCut(graph, allFlows, minimumCut)
-    file = open('partialMinCut.txt', 'w')
+    file = open(str(ouputDirectory) + '/partialMinCut.txt', 'w')
     file.write("minimum Percent of Flows Cut: " + str(minimumCut) + "\n")
     file.write("removed partial apps: " + str(appsToRemove[0]) + "\n")
     file.write("flows that are left: " + str(len(appsToRemove[1])) + "\n")
@@ -700,9 +604,5 @@ def main(args):
     print("flows that are left: " + str(len(appsToRemove[1])))
     print("all Flows : " + str(len(allFlows)))
     
-    #appToCutFlows = computeFlowsCutByApps(cuttingApps, graph, allFlows)
-    #sortedAppToCutFlows = sorted(appToCutFlows.items(), key=operator.itemgetter(1))
-    #print("Sorted AppToCutFlows: " + str(sortedAppToCutFlows))
-    #print("appToCutFlows: " + str(appToCutFlows))
 
 main(sys.argv)

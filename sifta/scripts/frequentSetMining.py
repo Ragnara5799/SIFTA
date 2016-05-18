@@ -1,3 +1,4 @@
+# -*- coding: ascii -*-
 import sys
 import os
 import random
@@ -424,7 +425,11 @@ def printFlows(flows):
             else:
                 print str(realObject) + "\n--> (" + ",".join(graph.edges[(hash, flow[i + 1])]) + ")"
             i += 1
-
+'''
+Berechnet ein dictionary, welches einem Flow des Graphen einer Menge von Apps zuordnet
+die in diesem Flow vorkommen.
+Gleichzeitig wird auch ein set aller Apps berechnet und beides zurueckgegeben.
+'''
 def computeAppsInFlows(allFlows, graph):
     appsToFlow = dict()
     allApps = set()
@@ -439,6 +444,12 @@ def computeAppsInFlows(allFlows, graph):
         appsToFlow.update(newPair)
     return [appsToFlow,allApps]
 
+'''
+Berechnet eine Liste von Listen, die Sets enthalten.
+Fuer jeden Flow wird ein Liste erstellt. Fuer jede Kante in dem Flow
+wird ein Set alle Apps dieser Kante erstellt und der Liste des Flows hinzugefuegt.
+Diese Listen werden dann als Liste zurueckgegeben.
+'''
 def computeEdgesInFlows(allFlows, graph):
     appsToFlow = []
     for flow in allFlows:
@@ -452,6 +463,11 @@ def computeEdgesInFlows(allFlows, graph):
         appsToFlow.append(apps)
     return appsToFlow
 
+'''
+Hier wird das erste SupportSet berechnet.
+Dabei wird fuer jede App berechnet in wievielen flows sie vorkommt.
+Diese daten werden in einem Dictionary gespeichert.
+'''
 def computeFirstSupportSet(appsToFlow, allApps):
     appSupport = dict()
     for app in allApps:
@@ -463,6 +479,29 @@ def computeFirstSupportSet(appsToFlow, allApps):
         appSupport.update(newPair)
     return appSupport
 
+'''
+Hier wird das erste SupportSet fuer den Clustergraphen berechnet.
+Dabei wird fuer jede App berechnet in wievielen Kanten sie vorkommt.
+Diese Daten werden dann in einem Dictionary gespeichert.
+'''
+def computeFirstSupportSetSameEdge(appsToFlow, allApps, graph):
+    appSupport = dict()
+    for app in allApps:
+        newPair = {app: 0}
+        appSupport.update(newPair)
+    for edge in graph.edges:
+        for app in graph.edges[edge]:
+            if app in appSupport:
+                counter = appSupport[app] + 1
+                newPair = {app : counter}
+                appSupport.update(newPair)
+    return appSupport
+
+'''
+Hier wird ein SupportSet fuer das setMining mit der Option "sameFlowDifferentEdges" berechnet.
+Dabei wird fuer jede tupel von Apps in appTupel berechnet, in wievielen Flows sie gemeinsam vorkommen,
+ohne dabei auf der selben Kante zu liegen
+'''
 def computeSupportSetEdgeBased(edgeToFlow, appTupel):
     appSupport = dict()
     for app in appTupel:
@@ -476,6 +515,33 @@ def computeSupportSetEdgeBased(edgeToFlow, appTupel):
         appSupport.update(newPair)
     return appSupport
 
+'''
+Hier wird ein SupportSet fuer den Clustergraphen berechnet.
+Dabei wird fuer jede AppTupel auf einer Kante des Graphen vorkommt.
+'''
+def computeSupportSetSameEdge(appTupel, graph):
+    appSupport = dict()
+    advanceCounter = 0
+    for app in appTupel:
+        newPair = {app:0}
+        appSupport.update(newPair)
+    for edge in graph.edges:
+        advanceCounter += 1
+        if advanceCounter%100 == 0:
+            print(advanceCounter)
+        for app in graph.edges[edge]:
+            for app2 in graph.edges[edge]:
+                if app != app2:
+                    if (app,app2) in appSupport:
+                        counter = appSupport[(app,app2)] + 1
+                        newPair = {(app,app2):counter}
+                        appSupport.update(newPair)
+    return appSupport
+
+'''
+Hier wird ein SupportSet fuer das setMining mit der Option "sameFlow" berechnet.
+Dabei wird fuer jede tupel von Apps in appTupel berechnet, in wievielen Flows sie gemeinsam vorkommen.
+'''
 def computeSupportSet(appsToFlow, appTupel):
     appSupport = dict()
     for app in appTupel:
@@ -491,10 +557,29 @@ def computeSupportSet(appsToFlow, appTupel):
         appSupport.update(newPair)
     return appSupport
 
+'''
+Hier wird das naechste Set von AppTupel berechnet.
+Dabei werden alle Kombinationen der einzelnen Apps mit den vorhandenen AppTupel berechnet, wobei
+die Tupel die das supportMinimum (also die mindest Anzahl wie haeufig sie auf der selben Kante/Fluss
+vorkommen muessen um im weiteren Verlauf des Algorithmus beachtet zu werden.) nicht erreichen herausgefiltert
+werden.
+'''
 def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, supportMinimum, step):
     appsForNextStep = set()
     permutations = set()
     newAppSet = list()
+    if step == 2:
+        for firstApp in singleApps:
+            for secondApp in singleApps:
+                if firstApp != secondApp:
+                    newSet = set()
+                    newSet.add(firstApp)
+                    newSet.add(secondApp)
+                    newList = (firstApp, secondApp)
+                    if newList not in permutations:
+                        newAppSet.append(newList)
+                        permutations.add((secondApp,firstApp))
+        return (newAppSet,removedAppCombos)
     # compute candidates for next step
     for app in previousSupportDict:
         if previousSupportDict[app] > supportMinimum:
@@ -517,7 +602,23 @@ def computeNextAppSet(singleApps, previousSupportDict, removedAppCombos, support
                             permutations.add(per)
                         newAppSet.append(newTupel)
     return (newAppSet,removedAppCombos)
-                        
+
+'''
+Diese Methode ueberprueft, ob eine AppCombo in einem Flow vorkommt mit der Einschraenkung
+das alle Apps auf verschiedenen Kanten liegen.
+Diese Methode ist rekursiv und etwas kompliziert.
+edgeSet ist eine Liste von Kanten die jeweils ein Set enthaelt die die Apps auf dieser Kante enthalten.
+Die Liste die diese Liste enhaelt wird in der Methode "computeEdgesInFlows" zuvor in der main-Methode 
+berechnet "mainSameFlowDifferentEdges".
+removedEdges speichert die Kanten auf denen bereits eine App liegt 
+und somit fuer die anderen Apps Tabu ist. deep steht fuer die Tiefe der rekursion.
+Zunaechst wird ueberprueft ob deep groesser als die Laenge der appCombination ist. Wenn das true ist,
+bedeutet es das alle Apps der Combination auf verschiedenen Kanten untergebracht worden sind.
+Somit dient diese Bedingung als Abbruchbedingung der Rekursion.
+Dann wird fuer jede Kante, die noch nicht entfernt wurde ueberprueft ob die aktuelle betrachtete App
+auf dieser Kante liegt. Wenn ja wird die Rekursion ausgefuehrt. Sollte keine Kante mehr gefunden werden,
+die die App enthaelt wirdein false zurueckgegeben.
+'''                        
 def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
     if deep >= len(appCombo):
         return 1
@@ -533,6 +634,13 @@ def containsAppCombosInDifferentEdges(appCombo, edgeSet, deep, removedEdges):
                     removedEdges.remove(edge)
     return 0
 
+'''
+Ueberprueft ob das newTupel eine bereits aussortierte AppCombination
+enthaelt. 
+Beispiel: (A,B) wurde aussortiert. (B,C) nicht. Im Verlauf des Algorithmus
+wird (A,B,C) erstellt. Da diese aber (A,B) enhaelt kann sie die supportMinimum nicht erfuellen
+und kann sofort aussortiert werden.
+'''
 def containsRemovedAppCombos(newTupel, removedAppCombos):
     contains = 0
     for removedCombo in removedAppCombos:  
@@ -544,7 +652,21 @@ def containsRemovedAppCombos(newTupel, removedAppCombos):
             return 1
     return 0
 
-def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step):
+'''
+Hier wird der Algorithmus fuer das Set-Mining ausgefuehrt.
+Solange es noch AppCombinationen in nextAppSet gibt, wird fuer diese zuerst ein neues
+SupportSet berechnet. Daraus wird dann dass naechste AppSet berechnet.
+Anmerkung: Bei einem zu niedrigen SuppportMinimum werden viel zu wenige AppCombinationen aussortiert 
+und die Groesse der nextAppSet explodiert, sowie die Laufzeit des Algorithmus wenn es nciht sogar zu einem
+Abbruch wegen Speicherproblemen kommt.
+Ausserdem werden in dieser Methode auch die SupportSets aller Schritte zwischengespeichert, sowohl in .pkl
+um sie spaeter wieder einfach einlesen zu koennen, als auch in sortierter .txt Format um sich die Ergebnisse
+ansehen zu koennen.
+Auch die entfernten AppCombinationen werden gespeichert.
+Dass wuerde ein weiterausfuehren des Algorithmus zu einem spaeteren Zeitpunkt erlauben.(Erfordert ein paar Anpassungen
+in der entsprechenden main-Methode) 
+'''
+def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, supportMinimum, step, outputDirectory):
     newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
     nextAppSet = newAppSet[0]
     newRemovedAppCombos = newAppSet[1]
@@ -553,10 +675,17 @@ def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, suppor
         print("next AppSet size: " + str(len(nextAppSet)))
         print("start step " + str(currentStep) + " at " + str(time.localtime()))
         nextSupportDict = computeSupportSet(appsToFlow, nextAppSet)
-        output = open("SupportSet" + str(currentStep) + ".pkl", 'w')
+        output = open(str(outputDirectory) + "/SupportSet" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
         pickle.dump(nextSupportDict, output)
         output.close()
-        output2 = open("removedAppCombos" + str(currentStep) + ".pkl", 'w')
+        
+        sortedSupportSet = sorted(nextSupportDict.items(), key=operator.itemgetter(1))
+        file = open(str(outputDirectory) + "/SupportSet" + str(supportMinimum) + "_" + str(currentStep) + ".txt", 'w')
+        for suppSet in sortedSupportSet:
+            file.write(str(suppSet) + "\n")
+        file.close()
+        
+        output2 = open(str(outputDirectory) + "/removedAppCombos" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
         pickle.dump(newRemovedAppCombos, output2)
         output2.close()
         print("step " + str(currentStep) + " finished at " + str(time.localtime()))
@@ -565,7 +694,11 @@ def setMining(singleApps, startSupportDict, appsToFlow ,removedAppCombos, suppor
         nextAppSet = newAppSet[0]
         newRemovedAppCombos = newAppSet[1]
 
-def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step):
+'''
+Macht das selbe wie die obere Methode nur mit entsprechenden Methoden
+fuer die SupportSet Berechnung fuer die Option "sameFlowDifferentEdges"
+'''
+def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppCombos, supportMinimum, step, outputDirectory):
     newAppSet = computeNextAppSet(singleApps, startSupportDict, removedAppCombos, supportMinimum, step)
     nextAppSet = newAppSet[0]
     newRemovedAppCombos = newAppSet[1]
@@ -574,18 +707,198 @@ def setMiningEdgeBased(singleApps, startSupportDict, edgesToFlow ,removedAppComb
         print("next AppSet size: " + str(len(nextAppSet)))
         print("start step " + str(currentStep) + " at " + str(time.localtime()))
         nextSupportDict = computeSupportSetEdgeBased(edgesToFlow, nextAppSet)
-        output = open("SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
+        output = open(str(outputDirectory) + "/SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
         pickle.dump(nextSupportDict, output)
-        output.close()
-        output2 = open("removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
+        output.close() 
+        sortedSupportSet = sorted(nextSupportDict.items(), key=operator.itemgetter(1))
+        file = open(str(outputDirectory) + "/SupportSetEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".txt", 'w')
+        for suppSet in sortedSupportSet:
+            file.write(str(suppSet) + "\n")
+        file.close()
+        output2 = open(str(outputDirectory) + "/removedAppCombosEdgeBased" + str(supportMinimum) + "_" + str(currentStep) + ".pkl", 'w')
         pickle.dump(newRemovedAppCombos, output2)
         output2.close()
         print("step " + str(currentStep) + " finished at " + str(time.localtime()))
         currentStep += 1
         newAppSet = computeNextAppSet(singleApps, nextSupportDict, newRemovedAppCombos, supportMinimum, currentStep)
         nextAppSet = newAppSet[0]
-        newRemovedAppCombos = newAppSet[1]    
-    
+        newRemovedAppCombos = newAppSet[1]  
+
+'''
+Die main-Methode fuer die Option "sameFlowDifferentEdges".
+Hier werden der Reihe nach die Vorbereitungen fuer den Set-Mining Algorithmus mit der Option
+"sameFlowDifferentEdges" ausgefuehrt.
+Dabei werden zum einen einige Listen und Set berechnet die fuer den Algorithmus noetig sind.
+Ausserdem wird ueberprueft ob das erste SupportSet bereits berechnet wurde.
+Das wird gemacht um Zeit zu sparen, da das erste SupportSet immer gleich bleibt, egal
+welches Supportminimum gewaehlt wird und die Berechnung dieses Sets einigermassen aufwendig ist.
+Ausserdem werden noch ein paar Informationen auf der Konsole ausgegeben.
+Wichtig hierbei sind vorallem "intresting App" die die Anzahl der Apps angibt die das Supportminimum 
+des ersten SupportSets erfuellen angeben. Ebenso wichtig ist "appSet", die die Groesse des ersten AppSet
+angibt. Die beiden Groessen sind direkt voneinander abhaengig und wenn sie zu Gross sind, ist es sehr wahrscheinlich
+das der Algorithmus nach ein paar Schritten stecken bleibt.(Aufgrund der explodierenden Groesse von AppSet)
+'''
+def mainSameFlowDifferentEdges(args,graph,allFlows):
+    outputDirectory = args[2]
+    supportLimit = int(args[3])
+    supportLimitDifEdge = int (args[5])
+    appsInFlows = computeAppsInFlows(allFlows, graph)
+    appsOfFlows = appsInFlows[0]
+    allApps = appsInFlows[1]
+    fSSetAlreadyComputed = int(args[4])
+    if fSSetAlreadyComputed == 0:
+        firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
+        output = open(str(outputDirectory) + '/firstSupportSet.pkl','w')
+        pickle.dump(firstSupportSet, output)
+        output.close()
+    input = open(str(outputDirectory) + '/firstSupportSet.pkl')
+    firstSupportSet = pickle.load(input)
+    input.close()
+    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
+    print("appsOfFlows: " + str(len(appsOfFlows)))
+    print("allApps: " + str(len(allApps)))
+    interestingApps = set()
+    for app in firstSupportSet:
+        if firstSupportSet[app] > supportLimit: # supportLimit 140
+            interestingApps.add(app)
+    print("instresting Apps: " + str(len(interestingApps)))
+    print("start Algorithm")
+    removedAppCombos = list()
+    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, supportLimitDifEdge, 2,outputDirectory)
+
+'''
+Die main-Methode fuer die Option "sameFlow".
+Hier werden der Reihe nach die Vorbereitungen fuer den Set-Mining Algorithmus mit der Option
+"sameFlow" ausgefuehrt.
+Dabei werden zum einen einige Listen und Set berechnet die fuer den Algorithmus noetig sind.
+Ausserdem wird ueberprueft ob das erste SupportSet bereits berechnet wurde.
+Das wird gemacht um Zeit zu sparen, da das erste SupportSet immer gleich bleibt, egal
+welches Supportminimum gewaehlt wird und die Berechnung dieses Sets einigermassen aufwendig ist.
+Ausserdem werden noch ein paar Informationen auf der Konsole ausgegeben.
+Wichtig hierbei sind vorallem "intresting App" die die Anzahl der Apps angibt die das Supportminimum 
+des ersten SupportSets erfuellen angeben. Ebenso wichtig ist "appSet", die die Groesse des ersten AppSet
+angibt. Die beiden Groessen sind direkt voneinander abhaengig und wenn sie zu Gross sind, ist es sehr wahrscheinlich
+das der Algorithmus nach ein paar Schritten stecken bleibt.(Aufgrund der explodierenden Groesse von AppSet)
+'''
+def mainSameFlow(args,graph,allFlows):
+    outputDirectory = args[2]
+    supportLimit = int(args[3])
+    appsInFlows = computeAppsInFlows(allFlows, graph)
+    appsOfFlows = appsInFlows[0]
+    allApps = appsInFlows[1]
+    fSSetAlreadyComputed = int(args[4])
+    if fSSetAlreadyComputed == 0:
+        firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
+        output = open(str(outPutDirectory) + '/firstSupportSet.pkl','w')
+        pickle.dump(firstSupportSet, output)
+        output.close()
+    input = open(str(outputDirectory) + '/firstSupportSet.pkl')
+    firstSupportSet = pickle.load(input)
+    input.close()
+    print("appsOfFlows: " + str(len(appsOfFlows)))
+    print("allApps: " + str(len(allApps)))
+    interestingApps = set()
+    for app in firstSupportSet:
+        if firstSupportSet[app] > supportLimit:
+            interestingApps.add(app)
+    print("instresting Apps: " + str(len(interestingApps)))
+    print("start Algorithm")
+    removedAppCombos = list()
+    setMining(interestingApps, firstSupportSet, appsOfFlows ,removedAppCombos, supportLimit, 2,outputDirectory)
+
+'''
+Die main-Methode fuer die Option "transformSetMiningIntoGraph".
+Hier werden der Reihe nach die Vorbereitungen fuer den Set-Mining Algorithmus mit der Option
+"transformSetMiningIntoGraph" ausgefuehrt.
+Dabei werden zum einen einige Listen und Set berechnet die fuer den Algorithmus noetig sind.
+Ausserdem wird ueberprueft ob das erste SupportSet bereits berechnet wurde.
+Das wird gemacht um Zeit zu sparen, da das erste SupportSet immer gleich bleibt, egal
+welches Supportminimum gewaehlt wird und die Berechnung dieses Sets einigermassen aufwendig ist.
+Hier stoppt der Algorithmus bereits nach dem 2. Schritt. Es werden also nutr AppPaare untersucht, da wir 
+nur diese Informationen fuer den Graphen brauchen der spaeter mit Clusterverfahren untersucht wird.
+Im Anschluss an die SupportSet Berechnung werden diese Informationen dann zu einem Graphen umgewandelt.
+Dabei bedeutet ein AppPaar das zwischen diesen beiden Apps eine Kante besteht. Der Wert aus dem SupportSet 
+fuer dieses AppPaar gibt dann das Gewicht der Kante an.
+'''
+def mainTransformSetMiningGraph(args,graph, allFLows):
+    outputDirectory = args[2]
+    supportLimit = int(args[3])
+    appsInFlows = computeAppsInFlows(allFlows, graph)
+    appsOfFlows = appsInFlows[0]
+    allApps = appsInFlows[1]
+    fSSetAlreadyComputed = int(args[4])
+    if fSSetAlreadyComputed == 0:
+        firstSupportSet = computeFirstSupportSetSameEdge(appsOfFlows, allApps, graph)
+        output = open(str(outPutDirectory) + '/firstSupportSetSameEdge.pkl','w')
+        pickle.dump(firstSupportSet, output)
+        output.close()
+    input = open(str(outputDirectory) + '/firstSupportSetSameEdge.pkl')
+    firstSupportSet = pickle.load(input)
+    input.close()
+    print("appsOfFlows: " + str(len(appsOfFlows)))
+    print("allApps: " + str(len(allApps)))
+    interestingApps = set()
+    for app in firstSupportSet:
+        if firstSupportSet[app] > supportLimit: # supportLimit 140
+            interestingApps.add(app)
+    print("instresting Apps: " + str(len(interestingApps)))
+    appPairs = set()
+    redundantAppPairs = set()
+    for firstApp in interestingApps:
+        for secondApp in interestingApps:
+            if firstApp != secondApp:
+                newSet = set()
+                newSet.add(firstApp)
+                newSet.add(secondApp)
+                newList = (firstApp, secondApp)
+                if newList not in redundantAppPairs:
+                    appPairs.add(newList)
+                redundantAppPairs.add((secondApp,firstApp))
+    supportSet = computeSupportSetSameEdge(appPairs, graph)
+    tranformSetMiningIntoGraph(supportSet, outputDirectory, args[5])
+
+'''
+Die Methode wandelt die Informationen aus dem SupportSet fuer AppPaare
+in einen Graphen um und speichert diesen in einem einfachen Textformat.
+Bsp: A,B,20 bedeutet das eine Kante zwischen A und B besteht mit dem Kantengewicht 20.
+'''    
+def tranformSetMiningIntoGraph(data, outputDirectory, outputName):
+    allApps = set()
+    for appTupel in data:
+        allApps.add(appTupel[0])
+        allApps.add(appTupel[1])
+    print("apps: " + str(len(allApps)))
+    appsToId = dict()
+    idToApps = dict()
+    id = 0
+    for app in allApps:
+        appsToIdPair = {app : id}
+        idToAppsPair = {id : app}
+        appsToId.update(appsToIdPair)
+        idToApps.update(idToAppsPair)
+        id += 1
+    outputFile = open(str(outputDirectory) + "/" + str(outputName) + ".txt", 'w')
+    for appTupel in data:
+        outputFile.write(str(appsToId[appTupel[0]]) + "," + str(appsToId[appTupel[1]]) + "," + str(data[appTupel]) + "\n")
+    outputFile.close()
+    appsToIdOutput = open(str(outputDirectory) + "/appsToId_" + str(outputName) + ".pkl",'w')
+    idToAppsOutput = open(str(outputDirectory) + "/idToApps_" + str(outputName) + ".pkl",'w')
+    pickle.dump(appsToId,appsToIdOutput)
+    pickle.dump(idToApps,idToAppsOutput)
+    appsToIdOutput.close()
+    idToAppsOutput.close()
+
+'''
+Diese Methode sortiert ein SupportSet und schreibt es in eine .txt-Datei
+'''
+def sortSupportSet(input, output):
+    inputFile = open(input)
+    data = pickle.load(inputFile)
+    dataSorted = sorted(data.items(), key=operator.itemgetter(1))
+    file = open(output, "a")
+    for d in dataSorted:
+        file.write(str(d) + "\n")
+    file.close()
         
 def main(args):
     global pcapps
@@ -643,86 +956,30 @@ def main(args):
         if (flowCount > breakOffFlowCount):
             print ("more than %i flows. breaking off!" % breakOffFlowCount)
             break
-        
-    if len(allFlows)==0:
-        print("0 flows found!")
-    else:
-        if printSampleFlows:
-            print("computing sample")
-            sample = random.sample(Set(ifilter(lambda flow: len(flow.edges) > 2 , allFlows)), 10) # 100 flows with more than 2 nodes
-            print("printing sample")
-            printFlowDetails(sample)
-        if printAllFlows:
-            printFlowDetails(allFlows)
-        maxLen=printFlowLengthsDetailsReturnMax(allFlows)
-        printFirstFlowWithLen(allFlows, maxLen)
-        if printAppStatistics:
-            appStatistics(allFlows)
-        if printStatistics:
-            graph.printAllStatistics()
-        #graph.drawGraph()
-        #drawGraph()
 #-------------------------------------------------------------------------------------------
-
-    appsInFlows = computeAppsInFlows(allFlows, graph)
-    appsOfFlows = appsInFlows[0]
-    allApps = appsInFlows[1]
-    edgesOfFlows = computeEdgesInFlows(allFlows, graph)
-    #firstSupportSet = computeFirstSupportSet(appsOfFlows, allApps)
-    input = open('firstSupportSet.pkl')
-    firstSupportSet = pickle.load(input)
-    input.close()
-    #sortedFirstSupportSet = sorted(firstSupportSet.items(), key=operator.itemgetter(1))
-    print("appsOfFlows: " + str(len(appsOfFlows)))
-    print("allApps: " + str(len(allApps)))
-    interestingApps = set()
-    for app in firstSupportSet:
-        if firstSupportSet[app] > 2000:
-            interestingApps.add(app)
-    print("instresting Apps: " + str(len(interestingApps)))
-    appPairs = set()
-    redundantAppPairs = set()
-    for firstApp in interestingApps:
-        for secondApp in interestingApps:
-            if firstApp != secondApp:
-                newSet = set()
-                newSet.add(firstApp)
-                newSet.add(secondApp)
-                newList = (firstApp, secondApp)
-                if newList not in redundantAppPairs:
-                    appPairs.add(newList)
-                redundantAppPairs.add((secondApp,firstApp))
-    print("appSet: " + str(len(appPairs)))
-    print("start Algorithm")
-    removedAppCombos = list()
-#    setMiningEdgeBased(interestingApps, firstSupportSet, edgesOfFlows ,removedAppCombos, 1500, 2)
+    '''
+    Hier werden verschiedene Typen von frequentSetMining berechnet.
+    Bei der Option 'sameFlow' wird der Zaehler fuer eine Gruppe von Apps dann    
+    erhoeht, wenn sich alle Apps der Gruppe im selben flow des Graphen befinden.
     
-    #supportSetEdgeBased = computeSupportSetEdgeBased(edgesOfFlows, appPairs)
-#    supportSet = computeSupportSet(appsOfFlows, appPairs)
-#    output = open('secondSupportSet.pkl', 'w')
-#    pickle.dump(supportSet, output)
-#    output.close()
+    Bei der Option 'sameFlowDifferentEdges' gilt zusaetzlich die Einschraenkung, dass
+    sich alle Apps auf verschiedenen Kanten innerhalb des flows befinden.
+    
+    Bei der Option transformSetMiningIntoGraph gilt die Einschraenkung das sich alle Apps
+    der Gruppe auf der selben Kante befinden muessen. Diese Berechnng wird spaeter fuer Clustering
+    gebraucht, bei der wir versuchen Gruppen von Apps zu finden die aehnlich verhalten bzw. kommunizieren.
+    Ebenso wird in dieser Option ein Graph berechnet und in einer Datei gespeichert, der fuer das Clustering
+    Programm verwendet wird
+    '''
+    
+        
+    if args[1] == 'sameFlowDifferentEdges':
+        mainSameFlowDifferentEdges(args,graph,allFlows)
+    elif args[1] == 'sameFlow':
+        mainSameFlow(args,graph,allFlows)
+    elif args[1] == 'transformSetMiningIntoGraph':
+        mainTransformSetMiningGraph(args,graph,allFlows)
 
 
-
-    input2 = open('SupportSet5.pkl')
-    startSupportSet = pickle.load(input2)
-    input2.close()
-#    input3 = open('removedAppCombos4.pkl')
-#    removedAppCombos = pickle.load(input3)
-#    input3.close()
-#    counter = 3
-#    print("start at " + str(time.localtime()))
-    #removedAppCombos = list()
-#    setMining(interestingApps, startSupportSet, appsOfFlows, removedAppCombos, 2000, 3)
     
-    
-    
-    #appSet = computeNextAppSet(interestingApps, secondSupportSet, removedAppCombos, 2000, 3)
-    #print("newAppSet: " + str(len(appSet[0])))
-    sortedSupportSet = sorted(startSupportSet.items(), key=operator.itemgetter(1))
-    for suppSet in sortedSupportSet:
-        print(suppSet)
-    #for app in sortedFirstSupportSet:
-    #    print(str(app))
 main(sys.argv)
